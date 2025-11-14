@@ -64,6 +64,50 @@ export type Database = {
           },
         ]
       }
+      groups: {
+        Row: {
+          created_at: string | null
+          group_name: string
+          group_order: number | null
+          id: string
+          max_participants: number | null
+          participants_count: number | null
+          updated_at: string | null
+          user_id: string
+          whatsapp_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          group_name: string
+          group_order?: number | null
+          id?: string
+          max_participants?: number | null
+          participants_count?: number | null
+          updated_at?: string | null
+          user_id: string
+          whatsapp_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          group_name?: string
+          group_order?: number | null
+          id?: string
+          max_participants?: number | null
+          participants_count?: number | null
+          updated_at?: string | null
+          user_id?: string
+          whatsapp_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
