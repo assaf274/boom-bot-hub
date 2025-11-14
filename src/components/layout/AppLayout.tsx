@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
+import { AppNavbar } from "./AppNavbar";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -11,9 +12,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full" dir="rtl">
         <AppSidebar />
-        <main className="flex-1 bg-muted/30">
-          {children}
-        </main>
+        <div className="flex-1 flex flex-col">
+          <AppNavbar />
+          <main className="flex-1 bg-muted/30">
+            {children}
+          </main>
+        </div>
       </div>
     </SidebarProvider>
   );

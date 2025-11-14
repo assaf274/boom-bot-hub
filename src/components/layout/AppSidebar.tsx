@@ -11,6 +11,7 @@ import {
   Image,
   MessageCircle,
   LogOut,
+  Bell,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +33,7 @@ const adminMenuItems = [
   { title: "ניהול לקוחות", url: "/admin/clients", icon: Users },
   { title: "ניהול בוטים", url: "/admin/bots", icon: Bot },
   { title: "הודעות", url: "/admin/messages", icon: MessageCircle },
+  { title: "התראות", url: "/admin/notifications", icon: Bell },
   { title: "קבוצות", url: "/admin/groups", icon: FolderKanban },
   { title: "תזמונים", url: "/admin/schedules", icon: Calendar },
   { title: "פרסומות", url: "/admin/ads", icon: Megaphone },
