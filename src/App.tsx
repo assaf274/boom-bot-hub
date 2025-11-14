@@ -14,6 +14,7 @@ import BotsManagement from "./pages/admin/BotsManagement";
 import MessagesManagement from "./pages/admin/MessagesManagement";
 import GroupsManagement from "./pages/admin/GroupsManagement";
 import NotificationsPage from "./pages/admin/NotificationsPage";
+import SettingsPage from "./pages/admin/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -106,11 +107,11 @@ const App = () => (
               path="/admin/settings"
               element={
                 <ProtectedRoute requireAdmin>
-                  <div>הגדרות - בקרוב</div>
+                  <SettingsPage />
                 </ProtectedRoute>
               }
             />
-
+            
             {/* Client Routes */}
             <Route
               path="/client"
