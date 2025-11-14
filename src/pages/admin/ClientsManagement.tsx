@@ -138,32 +138,36 @@ const ClientsManagement = () => {
 
   const handleAddClient = async () => {
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.full_name,
-            phone: formData.phone,
-            role: "client",
+      // Call the edge function to create the client using Admin API
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("לא מחובר למערכת");
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-client`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
           },
-        },
-      });
-
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Update profile with additional data
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({
+          body: JSON.stringify({
+            full_name: formData.full_name,
+            email: formData.email,
+            phone: formData.phone,
             notes: formData.notes,
             max_bots: formData.max_bots,
-          })
-          .eq("id", authData.user.id);
+            password: formData.password,
+          }),
+        }
+      );
 
-        if (updateError) throw updateError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "שגיאה ביצירת לקוח");
       }
 
       toast({
