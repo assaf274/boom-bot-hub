@@ -137,6 +137,25 @@ const ClientsManagement = () => {
   };
 
   const handleAddClient = async () => {
+    // Validate required fields
+    if (!formData.full_name || !formData.email || !formData.password) {
+      toast({
+        title: "שגיאה",
+        description: "יש למלא את כל השדות המסומנים בכוכבית (*)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast({
+        title: "שגיאה",
+        description: "הסיסמה חייבת להכיל לפחות 6 תווים",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // Call the edge function to create the client using Admin API
       const { data: { session } } = await supabase.auth.getSession();
@@ -315,37 +334,64 @@ const ClientsManagement = () => {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">שם מלא</Label>
-                    <Input id="name" placeholder="שם הלקוח" />
+                    <Label htmlFor="name">שם מלא *</Label>
+                    <Input 
+                      id="name" 
+                      placeholder="שם הלקוח"
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="username">שם משתמש</Label>
-                    <Input id="username" placeholder="שם משתמש" />
+                    <Label htmlFor="email">אימייל *</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      placeholder="email@example.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">אימייל</Label>
-                    <Input id="email" type="email" placeholder="email@example.com" />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">טלפון</Label>
-                    <Input id="phone" placeholder="050-1234567" />
+                    <Input 
+                      id="phone" 
+                      placeholder="050-1234567"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="password">סיסמה</Label>
-                    <Input id="password" type="password" placeholder="סיסמה" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bots">כמות בוטים</Label>
-                    <Input id="bots" type="number" placeholder="5" />
+                    <Label htmlFor="password">סיסמה *</Label>
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      placeholder="לפחות 6 תווים"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="bots">כמות בוטים מקסימלית</Label>
+                  <Input 
+                    id="bots" 
+                    type="number" 
+                    placeholder="5"
+                    value={formData.max_bots}
+                    onChange={(e) => setFormData({ ...formData, max_bots: parseInt(e.target.value) || 5 })}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="notes">הערות</Label>
-                  <Textarea id="notes" placeholder="הערות נוספות..." />
+                  <Textarea 
+                    id="notes" 
+                    placeholder="הערות נוספות..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="flex justify-end gap-3">
