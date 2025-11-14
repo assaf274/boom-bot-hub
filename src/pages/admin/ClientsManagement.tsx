@@ -79,6 +79,27 @@ const ClientsManagement = () => {
 
   useEffect(() => {
     fetchClients();
+    
+    // Set up realtime subscription for bots table
+    const botsChannel = supabase
+      .channel('bots-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bots'
+        },
+        () => {
+          console.log('Bots table changed, refreshing clients...');
+          fetchClients();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(botsChannel);
+    };
   }, []);
 
   const fetchClients = async () => {
