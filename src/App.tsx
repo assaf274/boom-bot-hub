@@ -5,10 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Calendar, Megaphone, Image } from "lucide-react";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ClientDashboard from "./pages/client/ClientDashboard";
+import ClientBotsManagement from "./pages/client/ClientBotsManagement";
+import ClientGroupsManagement from "./pages/client/ClientGroupsManagement";
 import ClientsManagement from "./pages/admin/ClientsManagement";
 import BotsManagement from "./pages/admin/BotsManagement";
 import MessagesManagement from "./pages/admin/MessagesManagement";
@@ -127,6 +130,64 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ClientDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/client/bots"
+              element={
+                <ProtectedRoute>
+                  <ClientBotsManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/client/groups"
+              element={
+                <ProtectedRoute>
+                  <ClientGroupsManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/client/schedules"
+              element={
+                <ProtectedRoute>
+                  <div className="min-h-screen flex items-center justify-center bg-background">
+                    <div className="text-center">
+                      <Calendar className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                      <h2 className="text-2xl font-bold mb-2">תזמונים</h2>
+                      <p className="text-muted-foreground">בקרוב...</p>
+                    </div>
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/client/ads"
+              element={
+                <ProtectedRoute>
+                  <div className="min-h-screen flex items-center justify-center bg-background">
+                    <div className="text-center">
+                      <Megaphone className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                      <h2 className="text-2xl font-bold mb-2">פרסומות</h2>
+                      <p className="text-muted-foreground">בקרוב...</p>
+                    </div>
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/client/screenshots"
+              element={
+                <ProtectedRoute>
+                  <div className="min-h-screen flex items-center justify-center bg-background">
+                    <div className="text-center">
+                      <Image className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                      <h2 className="text-2xl font-bold mb-2">צילומי מסך</h2>
+                      <p className="text-muted-foreground">בקרוב...</p>
+                    </div>
+                  </div>
                 </ProtectedRoute>
               }
             />
