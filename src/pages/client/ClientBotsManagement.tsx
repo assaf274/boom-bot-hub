@@ -70,7 +70,12 @@ const ClientBotsManagement = () => {
   const addBotMutation = useMutation({
     mutationFn: async (botName: string) => {
       if (!user?.id) throw new Error("אין משתמש מחובר");
-      return await api.createBot(botName, user.id);
+      try {
+        return await api.createBot(botName, user.id);
+      } catch (error) {
+        console.error("API Error:", error);
+        throw new Error(`לא ניתן להתחבר לשרת. אנא ודא שהשרת ב-${import.meta.env.VITE_API_URL} פועל.`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-bots"] });
