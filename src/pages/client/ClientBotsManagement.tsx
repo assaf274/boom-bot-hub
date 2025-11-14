@@ -41,14 +41,30 @@ const ClientBotsManagement = () => {
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
   // Fetch user's bots from external API
-  const { data: bots = [], isLoading } = useQuery({
+  const { data: bots = [], isLoading, error } = useQuery({
     queryKey: ["client-bots", user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
-      return await api.getBots(user.id);
+      if (!user?.id) {
+        console.log("No user ID found");
+        return [];
+      }
+      console.log("Fetching bots for user:", user.id);
+      try {
+        const result = await api.getBots(user.id);
+        console.log("Bots fetched successfully:", result);
+        return result;
+      } catch (err) {
+        console.error("Error fetching bots:", err);
+        throw err;
+      }
     },
     enabled: !!user?.id,
   });
+
+  // Show error message if query failed
+  if (error) {
+    console.error("Query error:", error);
+  }
 
   // Fetch user profile to get max_bots
   const { data: profile } = useQuery({
@@ -79,6 +95,7 @@ const ClientBotsManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-bots"] });
+      queryClient.invalidateQueries({ queryKey: ["profiles"] }); // Refresh count
       toast({
         title: "בוט נוסף בהצלחה",
         description: "הבוט שלך נוסף למערכת",
@@ -154,6 +171,27 @@ const ClientBotsManagement = () => {
 
   const maxBots = profile?.max_bots || 5;
   const canAddBot = bots.length < maxBots;
+
+  // Show error state if query failed
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto p-6">
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                <div>
+                  <p className="font-semibold">שגיאה בטעינת הבוטים</p>
+                  <p className="text-sm">{error instanceof Error ? error.message : "אירעה שגיאה לא ידועה"}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
