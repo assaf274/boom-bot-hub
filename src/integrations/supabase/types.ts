@@ -108,6 +108,63 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          bot_id: string
+          content: string
+          created_at: string
+          group_id: string
+          id: string
+          message_type: Database["public"]["Enums"]["message_type"]
+          scheduled_at: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["message_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_id: string
+          content: string
+          created_at?: string
+          group_id: string
+          id?: string
+          message_type?: Database["public"]["Enums"]["message_type"]
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["message_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_id?: string
+          content?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          message_type?: Database["public"]["Enums"]["message_type"]
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["message_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -181,6 +238,8 @@ export type Database = {
     Enums: {
       app_role: "admin" | "client"
       bot_status: "connected" | "disconnected" | "pending"
+      message_status: "pending" | "sent" | "failed"
+      message_type: "text" | "image" | "video" | "document"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -310,6 +369,8 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "client"],
       bot_status: ["connected", "disconnected", "pending"],
+      message_status: ["pending", "sent", "failed"],
+      message_type: ["text", "image", "video", "document"],
     },
   },
 } as const
