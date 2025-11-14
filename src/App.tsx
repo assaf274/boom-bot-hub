@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { Calendar, Megaphone, Image } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -14,7 +14,6 @@ import ClientBotsManagement from "./pages/client/ClientBotsManagement";
 import ClientGroupsManagement from "./pages/client/ClientGroupsManagement";
 import ClientsManagement from "./pages/admin/ClientsManagement";
 import BotsManagement from "./pages/admin/BotsManagement";
-import MessagesManagement from "./pages/admin/MessagesManagement";
 import GroupsManagement from "./pages/admin/GroupsManagement";
 import NotificationsPage from "./pages/admin/NotificationsPage";
 import SettingsPage from "./pages/admin/SettingsPage";
@@ -68,14 +67,6 @@ const App = () => (
               }
             />
             <Route
-              path="/admin/messages"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <MessagesManagement />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/admin/notifications"
               element={
                 <ProtectedRoute requireAdmin>
@@ -84,26 +75,10 @@ const App = () => (
               }
             />
             <Route
-              path="/admin/schedules"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <div>תזמונים - בקרוב</div>
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/admin/ads"
               element={
                 <ProtectedRoute requireAdmin>
                   <div>פרסומות - בקרוב</div>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/screenshots"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <div>צילומי מסך - בקרוב</div>
                 </ProtectedRoute>
               }
             />
@@ -150,20 +125,6 @@ const App = () => (
               }
             />
             <Route
-              path="/client/schedules"
-              element={
-                <ProtectedRoute>
-                  <div className="min-h-screen flex items-center justify-center bg-background">
-                    <div className="text-center">
-                      <Calendar className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                      <h2 className="text-2xl font-bold mb-2">תזמונים</h2>
-                      <p className="text-muted-foreground">בקרוב...</p>
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/client/ads"
               element={
                 <ProtectedRoute>
@@ -171,20 +132,6 @@ const App = () => (
                     <div className="text-center">
                       <Megaphone className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                       <h2 className="text-2xl font-bold mb-2">פרסומות</h2>
-                      <p className="text-muted-foreground">בקרוב...</p>
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/client/screenshots"
-              element={
-                <ProtectedRoute>
-                  <div className="min-h-screen flex items-center justify-center bg-background">
-                    <div className="text-center">
-                      <Image className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                      <h2 className="text-2xl font-bold mb-2">צילומי מסך</h2>
                       <p className="text-muted-foreground">בקרוב...</p>
                     </div>
                   </div>

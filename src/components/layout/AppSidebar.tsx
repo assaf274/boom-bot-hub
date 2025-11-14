@@ -6,10 +6,7 @@ import {
   Bot,
   FolderKanban,
   Settings,
-  Calendar,
   Megaphone,
-  Image,
-  MessageCircle,
   LogOut,
   Bell,
   BarChart3,
@@ -34,13 +31,10 @@ const adminMenuItems = [
   { title: "דשבורד", url: "/admin", icon: LayoutDashboard },
   { title: "ניהול לקוחות", url: "/admin/clients", icon: Users },
   { title: "ניהול בוטים", url: "/admin/bots", icon: Bot },
-  { title: "הודעות", url: "/admin/messages", icon: MessageCircle },
   { title: "התראות", url: "/admin/notifications", icon: Bell },
   { title: "דוחות וניתוח", url: "/admin/reports", icon: BarChart3 },
   { title: "קבוצות", url: "/admin/groups", icon: FolderKanban },
-  { title: "תזמונים", url: "/admin/schedules", icon: Calendar },
   { title: "פרסומות", url: "/admin/ads", icon: Megaphone },
-  { title: "צילומי מסך", url: "/admin/screenshots", icon: Image },
   { title: "הגדרות", url: "/admin/settings", icon: Settings },
 ];
 
@@ -48,9 +42,7 @@ const clientMenuItems = [
   { title: "דשבורד", url: "/client", icon: LayoutDashboard },
   { title: "הבוטים שלי", url: "/client/bots", icon: Bot },
   { title: "קבוצות", url: "/client/groups", icon: FolderKanban },
-  { title: "תזמונים", url: "/client/schedules", icon: Calendar },
   { title: "הפרסומות שלי", url: "/client/ads", icon: Megaphone },
-  { title: "צילומי מסך", url: "/client/screenshots", icon: Image },
 ];
 
 export function AppSidebar() {
@@ -65,7 +57,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <MessageCircle className="w-5 h-5 text-primary-foreground" />
+            <Bot className="w-5 h-5 text-primary-foreground" />
           </div>
           {!isCollapsed && <span className="font-bold text-lg">BoomBot</span>}
         </div>
