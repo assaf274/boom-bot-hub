@@ -15,6 +15,7 @@ import MessagesManagement from "./pages/admin/MessagesManagement";
 import GroupsManagement from "./pages/admin/GroupsManagement";
 import NotificationsPage from "./pages/admin/NotificationsPage";
 import SettingsPage from "./pages/admin/SettingsPage";
+import ReportsPage from "./pages/admin/ReportsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -108,6 +109,14 @@ const App = () => (
               element={
                 <ProtectedRoute requireAdmin>
                   <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/reports"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <ReportsPage />
                 </ProtectedRoute>
               }
             />
