@@ -1,12 +1,24 @@
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Bot, FolderKanban, Calendar, CheckCircle, XCircle, Clock } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { MessageSquare, Bot, FolderKanban, Calendar, CheckCircle, XCircle, Clock, Trash2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
+import { useToast } from "@/hooks/use-toast";
 
 type Message = Tables<"messages">;
 
@@ -16,9 +28,13 @@ interface MessageWithDetails extends Message {
 }
 
 const MessagesManagement = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<MessageWithDetails | null>(null);
 
   // Fetch all messages with related data
   const { data: messages, isLoading } = useQuery({
@@ -59,6 +75,39 @@ const MessagesManagement = () => {
     if (groupFilter !== "all" && message.group_id !== groupFilter) return false;
     return true;
   });
+
+  // Delete message mutation
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("id", messageId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      toast({
+        title: "ההודעה נמחקה",
+        description: "ההודעה הוסרה מהמערכת בהצלחה",
+      });
+      setIsDeleteDialogOpen(false);
+      setSelectedMessage(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "שגיאה במחיקת הודעה",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openDeleteDialog = (message: MessageWithDetails) => {
+    setSelectedMessage(message);
+    setIsDeleteDialogOpen(true);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -166,7 +215,7 @@ const MessagesManagement = () => {
                   <div className="space-y-4">
                     {/* Header */}
                     <div className="flex items-start justify-between">
-                      <div className="space-y-2">
+                      <div className="space-y-2 flex-1">
                         <div className="flex items-center gap-2">
                           {getStatusBadge(message.status)}
                           {getTypeBadge(message.message_type)}
@@ -180,26 +229,32 @@ const MessagesManagement = () => {
                             <FolderKanban className="w-4 h-4" />
                             <span>קבוצה: {message.groups?.group_name || "לא ידוע"}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4" />
-                            <span>מזהה משתמש: {message.user_id}</span>
-                          </div>
                         </div>
                       </div>
-                      <div className="text-left text-sm text-muted-foreground space-y-1">
-                        {message.scheduled_at && (
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>תזמון: {new Date(message.scheduled_at).toLocaleString("he-IL")}</span>
-                          </div>
-                        )}
-                        {message.sent_at && (
-                          <div className="flex items-center gap-1">
-                            <CheckCircle className="w-4 h-4" />
-                            <span>נשלח: {new Date(message.sent_at).toLocaleString("he-IL")}</span>
-                          </div>
-                        )}
-                        <div>נוצר: {new Date(message.created_at).toLocaleString("he-IL")}</div>
+                      <div className="flex gap-2 items-start">
+                        <div className="text-left text-sm text-muted-foreground space-y-1">
+                          {message.scheduled_at && (
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>תזמון: {new Date(message.scheduled_at).toLocaleString("he-IL")}</span>
+                            </div>
+                          )}
+                          {message.sent_at && (
+                            <div className="flex items-center gap-1">
+                              <CheckCircle className="w-4 h-4" />
+                              <span>נשלח: {new Date(message.sent_at).toLocaleString("he-IL")}</span>
+                            </div>
+                          )}
+                          <div>נוצר: {new Date(message.created_at).toLocaleString("he-IL")}</div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openDeleteDialog(message)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
 
@@ -232,6 +287,29 @@ const MessagesManagement = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent dir="rtl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+              <AlertDialogDescription>
+                פעולה זו תמחק את ההודעה לצמיתות. לא ניתן לבטל פעולה זו.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => { setIsDeleteDialogOpen(false); setSelectedMessage(null); }}>
+                ביטול
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => selectedMessage && deleteMessageMutation.mutate(selectedMessage.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                מחק
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
