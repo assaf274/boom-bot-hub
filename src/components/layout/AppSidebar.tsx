@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,16 +56,18 @@ const clientMenuItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { signOut, isAdmin, user } = useAuth();
+  const { state } = useSidebar();
   const menuItems = isAdmin ? adminMenuItems : clientMenuItems;
+  const isCollapsed = state === "collapsed";
 
   return (
-    <Sidebar className="border-r" collapsible="icon" side="right">
+    <Sidebar className="border-l" collapsible="icon" side="right">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
             <MessageCircle className="w-5 h-5 text-primary-foreground" />
           </div>
-          <span className="font-bold text-lg">BoomBot</span>
+          {!isCollapsed && <span className="font-bold text-lg">BoomBot</span>}
         </div>
       </SidebarHeader>
       
@@ -83,7 +86,7 @@ export function AppSidebar() {
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
                     >
                       <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
+                      {!isCollapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
