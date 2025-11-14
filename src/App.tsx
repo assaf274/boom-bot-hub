@@ -12,6 +12,7 @@ import ClientDashboard from "./pages/client/ClientDashboard";
 import ClientsManagement from "./pages/admin/ClientsManagement";
 import BotsManagement from "./pages/admin/BotsManagement";
 import MessagesManagement from "./pages/admin/MessagesManagement";
+import GroupsManagement from "./pages/admin/GroupsManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,7 +57,7 @@ const App = () => (
               path="/admin/groups"
               element={
                 <ProtectedRoute requireAdmin>
-                  <div>קבוצות - בקרוב</div>
+                  <GroupsManagement />
                 </ProtectedRoute>
               }
             />
