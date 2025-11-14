@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import * as api from "@/lib/api";
 
 type Bot = api.Bot;
@@ -27,6 +28,8 @@ type Bot = api.Bot;
 const BotsManagement = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const clientId = searchParams.get('clientId');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -57,6 +60,16 @@ const BotsManagement = () => {
       }));
     },
   });
+
+  // Filter bots by clientId if provided
+  const filteredBots = clientId 
+    ? bots?.filter(bot => bot.user_id === clientId)
+    : bots;
+
+  // Get client name if filtering
+  const filteredClient = clientId 
+    ? bots?.find(bot => bot.user_id === clientId)?.profiles
+    : null;
 
   // Setup realtime subscription for bot status updates
   useEffect(() => {
@@ -296,9 +309,24 @@ const BotsManagement = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold mb-2">ניהול בוטים</h1>
-            <p className="text-muted-foreground text-lg">
-              נהל את כל הבוטים במערכת
-            </p>
+            {filteredClient ? (
+              <div className="flex items-center gap-2">
+                <p className="text-muted-foreground text-lg">
+                  בוטים של: <span className="font-semibold text-foreground">{filteredClient.full_name}</span>
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSearchParams({})}
+                >
+                  הצג את כל הבוטים
+                </Button>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-lg">
+                נהל את כל הבוטים במערכת
+              </p>
+            )}
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -345,15 +373,17 @@ const BotsManagement = () => {
           </Dialog>
         </div>
 
-        {bots && bots.length === 0 ? (
+        {filteredBots && filteredBots.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">אין בוטים במערכת. הוסף בוט חדש כדי להתחיל.</p>
+              <p className="text-muted-foreground">
+                {clientId ? "אין בוטים ללקוח זה" : "אין בוטים במערכת. הוסף בוט חדש כדי להתחיל."}
+              </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {bots?.map((bot: any) => (
+            {filteredBots?.map((bot: any) => (
               <Card key={bot.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
