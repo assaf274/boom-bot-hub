@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Edit, Trash2, Mail, Phone } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Mail, Phone, Bot } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -59,6 +60,7 @@ interface ClientFormData {
 
 const ClientsManagement = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -476,6 +478,14 @@ const ClientsManagement = () => {
                       </TableCell>
                       <TableCell className="text-left">
                         <div className="flex gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => navigate(`/admin/bots?clientId=${client.id}`)}
+                            title="הצג בוטים"
+                          >
+                            <Bot className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(client)}>
                             <Edit className="h-4 w-4" />
                           </Button>
