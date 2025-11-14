@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,54 +20,269 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Edit, Trash2, Eye, Mail, Phone } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Mail, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Client {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  notes: string | null;
+  max_bots: number;
+  created_at: string;
+  bots_count: number;
+  groups_count: number;
+}
+
+interface ClientFormData {
+  full_name: string;
+  email: string;
+  phone: string;
+  notes: string;
+  max_bots: number;
+  password: string;
+}
 
 const ClientsManagement = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [formData, setFormData] = useState<ClientFormData>({
+    full_name: "",
+    email: "",
+    phone: "",
+    notes: "",
+    max_bots: 5,
+    password: "",
+  });
 
-  // Mock data - יוחלף בנתונים אמיתיים מ-Lovable Cloud
-  const clients = [
-    {
-      id: 1,
-      name: "ישראל כהן",
-      email: "israel@example.com",
-      phone: "050-1234567",
-      bots: 5,
-      groups: 45,
-      status: "פעיל",
-    },
-    {
-      id: 2,
-      name: "דוד לוי",
-      email: "david@example.com",
-      phone: "052-9876543",
-      bots: 3,
-      groups: 28,
-      status: "פעיל",
-    },
-    {
-      id: 3,
-      name: "שרה מזרחי",
-      email: "sara@example.com",
-      phone: "054-5555555",
-      bots: 8,
-      groups: 92,
-      status: "פעיל",
-    },
-  ];
+  useEffect(() => {
+    fetchClients();
+  }, []);
 
-  const handleAddClient = () => {
-    toast({
-      title: "לקוח נוסף בהצלחה",
-      description: "הלקוח החדש נוסף למערכת",
-    });
-    setIsAddDialogOpen(false);
+  const fetchClients = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (profilesError) throw profilesError;
+
+      // Fetch bots count for each client
+      const { data: bots, error: botsError } = await supabase
+        .from("bots")
+        .select("user_id");
+
+      if (botsError) throw botsError;
+
+      // Fetch groups count for each client
+      const { data: groups, error: groupsError } = await supabase
+        .from("groups")
+        .select("user_id");
+
+      if (groupsError) throw groupsError;
+
+      // Count bots and groups per user
+      const botsCount = bots?.reduce((acc, bot) => {
+        acc[bot.user_id] = (acc[bot.user_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      const groupsCount = groups?.reduce((acc, group) => {
+        acc[group.user_id] = (acc[group.user_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      // Combine data
+      const clientsData = profiles?.map((profile) => ({
+        ...profile,
+        bots_count: botsCount[profile.id] || 0,
+        groups_count: groupsCount[profile.id] || 0,
+      })) || [];
+
+      setClients(clientsData);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      toast({
+        title: "שגיאה",
+        description: "לא ניתן לטעון את נתוני הלקוחות",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleAddClient = async () => {
+    try {
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.full_name,
+            phone: formData.phone,
+            role: "client",
+          },
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Update profile with additional data
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({
+            notes: formData.notes,
+            max_bots: formData.max_bots,
+          })
+          .eq("id", authData.user.id);
+
+        if (updateError) throw updateError;
+      }
+
+      toast({
+        title: "לקוח נוסף בהצלחה",
+        description: "הלקוח החדש נוסף למערכת",
+      });
+      
+      setIsAddDialogOpen(false);
+      resetForm();
+      fetchClients();
+    } catch (error: any) {
+      console.error("Error adding client:", error);
+      toast({
+        title: "שגיאה",
+        description: error.message || "לא ניתן להוסיף לקוח",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditClient = async () => {
+    if (!selectedClient) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: formData.full_name,
+          email: formData.email,
+          phone: formData.phone,
+          notes: formData.notes,
+          max_bots: formData.max_bots,
+        })
+        .eq("id", selectedClient.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "הלקוח עודכן בהצלחה",
+        description: "הפרטים עודכנו במערכת",
+      });
+      
+      setIsEditDialogOpen(false);
+      setSelectedClient(null);
+      resetForm();
+      fetchClients();
+    } catch (error: any) {
+      console.error("Error updating client:", error);
+      toast({
+        title: "שגיאה",
+        description: error.message || "לא ניתן לעדכן את הלקוח",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!selectedClient) return;
+
+    try {
+      // Delete profile (this will cascade delete related data)
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", selectedClient.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "הלקוח נמחק בהצלחה",
+        description: "הלקוח הוסר מהמערכת",
+      });
+      
+      setIsDeleteDialogOpen(false);
+      setSelectedClient(null);
+      fetchClients();
+    } catch (error: any) {
+      console.error("Error deleting client:", error);
+      toast({
+        title: "שגיאה",
+        description: error.message || "לא ניתן למחוק את הלקוח",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (client: Client) => {
+    setSelectedClient(client);
+    setFormData({
+      full_name: client.full_name,
+      email: client.email,
+      phone: client.phone || "",
+      notes: client.notes || "",
+      max_bots: client.max_bots,
+      password: "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (client: Client) => {
+    setSelectedClient(client);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      full_name: "",
+      email: "",
+      phone: "",
+      notes: "",
+      max_bots: 5,
+      password: "",
+    });
+  };
+
+  const filteredClients = clients.filter((client) =>
+    client.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <AppLayout>
@@ -170,51 +385,153 @@ const ClientsManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {clients.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell className="font-medium">{client.name}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        {client.email}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {client.phone}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{client.bots}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{client.groups}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-800">
-                        {client.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      טוען...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : filteredClients.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      אין לקוחות להצגה
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredClients.map((client) => (
+                    <TableRow key={client.id}>
+                      <TableCell className="font-medium">{client.full_name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {client.email}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          {client.phone || "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{client.bots_count} בוטים</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{client.groups_count} קבוצות</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={client.bots_count >= client.max_bots ? "destructive" : "default"}>
+                          {client.max_bots}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-left">
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(client)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(client)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
+
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl" dir="rtl">
+            <DialogHeader>
+              <DialogTitle>עריכת לקוח</DialogTitle>
+              <DialogDescription>
+                ערוך את פרטי הלקוח במערכת
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">שם מלא</Label>
+                  <Input
+                    id="edit-name"
+                    placeholder="שם הלקוח"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">אימייל</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    placeholder="email@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">טלפון</Label>
+                <Input
+                  id="edit-phone"
+                  placeholder="050-1234567"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-max-bots">מספר בוטים מקסימלי</Label>
+                <Input
+                  id="edit-max-bots"
+                  type="number"
+                  min="1"
+                  value={formData.max_bots}
+                  onChange={(e) => setFormData({ ...formData, max_bots: parseInt(e.target.value) || 5 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">הערות</Label>
+                <Textarea
+                  id="edit-notes"
+                  placeholder="הערות נוספות..."
+                  className="min-h-[100px]"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setSelectedClient(null); resetForm(); }}>
+                ביטול
+              </Button>
+              <Button onClick={handleEditClient}>עדכן</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent dir="rtl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+              <AlertDialogDescription>
+                פעולה זו תמחק את הלקוח {selectedClient?.full_name} ואת כל הבוטים, הקבוצות וההודעות שלו. 
+                לא ניתן לבטל פעולה זו.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => { setIsDeleteDialogOpen(false); setSelectedClient(null); }}>
+                ביטול
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteClient} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                מחק
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
