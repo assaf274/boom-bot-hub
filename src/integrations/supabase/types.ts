@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      bots: {
+        Row: {
+          bot_name: string
+          connected_at: string | null
+          connection_id: string | null
+          created_at: string
+          id: string
+          last_active: string | null
+          phone_number: string | null
+          qr_code: string | null
+          status: Database["public"]["Enums"]["bot_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_name: string
+          connected_at?: string | null
+          connection_id?: string | null
+          created_at?: string
+          id?: string
+          last_active?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: Database["public"]["Enums"]["bot_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_name?: string
+          connected_at?: string | null
+          connection_id?: string | null
+          created_at?: string
+          id?: string
+          last_active?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: Database["public"]["Enums"]["bot_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -86,6 +136,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "client"
+      bot_status: "connected" | "disconnected" | "pending"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -214,6 +265,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "client"],
+      bot_status: ["connected", "disconnected", "pending"],
     },
   },
 } as const
