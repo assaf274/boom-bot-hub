@@ -25,6 +25,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const adminMenuItems = [
   { title: "דשבורד", url: "/admin", icon: LayoutDashboard },
@@ -48,7 +49,7 @@ const clientMenuItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const isAdmin = location.pathname.startsWith("/admin");
+  const { signOut, isAdmin, user } = useAuth();
   const menuItems = isAdmin ? adminMenuItems : clientMenuItems;
 
   return (
@@ -87,11 +88,19 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 space-y-2">
+        {user && (
+          <div className="text-sm text-sidebar-foreground px-2 py-1 bg-sidebar-accent/50 rounded">
+            <p className="font-medium truncate">{user.email}</p>
+            <p className="text-xs text-muted-foreground">
+              {isAdmin ? "מנהל מערכת" : "לקוח"}
+            </p>
+          </div>
+        )}
         <Button
           variant="ghost"
           className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-          onClick={() => window.location.href = "/"}
+          onClick={signOut}
         >
           <LogOut className="h-5 w-5 ml-2" />
           <span>התנתק</span>
