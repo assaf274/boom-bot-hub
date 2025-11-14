@@ -4,10 +4,108 @@ import { Button } from "@/components/ui/button";
 import { Users, Bot, FolderKanban, MessageSquare, Activity, Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalClients: 0,
+    activeBots: 0,
+    totalGroups: 0,
+    todayMessages: 0,
+    successfulMessages: 0,
+    failedMessages: 0,
+    pendingMessages: 0,
+  });
+  const [messagesByDay, setMessagesByDay] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      // Fetch clients count
+      const { count: clientsCount } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
+
+      // Fetch active bots
+      const { count: botsCount } = await supabase
+        .from("bots")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "connected");
+
+      // Fetch total groups
+      const { count: groupsCount } = await supabase
+        .from("groups")
+        .select("*", { count: "exact", head: true });
+
+      // Fetch today's messages
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const { count: todayCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", today.toISOString());
+
+      // Fetch message status counts
+      const { count: successCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "sent");
+
+      const { count: failedCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "failed");
+
+      const { count: pendingCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+
+      // Fetch messages by day for the last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const { data: messagesData } = await supabase
+        .from("messages")
+        .select("created_at, status")
+        .gte("created_at", sevenDaysAgo.toISOString());
+
+      // Group messages by day
+      const messagesByDayMap = new Map();
+      messagesData?.forEach((msg) => {
+        const date = new Date(msg.created_at).toLocaleDateString("he-IL", {
+          month: "short",
+          day: "numeric",
+        });
+        if (!messagesByDayMap.has(date)) {
+          messagesByDayMap.set(date, { date, sent: 0, failed: 0, pending: 0 });
+        }
+        const dayData = messagesByDayMap.get(date);
+        if (msg.status === "sent") dayData.sent++;
+        else if (msg.status === "failed") dayData.failed++;
+        else if (msg.status === "pending") dayData.pending++;
+      });
+
+      setMessagesByDay(Array.from(messagesByDayMap.values()));
+
+      setStats({
+        totalClients: clientsCount || 0,
+        activeBots: botsCount || 0,
+        totalGroups: groupsCount || 0,
+        todayMessages: todayCount || 0,
+        successfulMessages: successCount || 0,
+        failedMessages: failedCount || 0,
+        pendingMessages: pendingCount || 0,
+      });
+    } catch (error: any) {
+      toast.error("שגיאה בטעינת נתונים: " + error.message);
+    }
+  };
 
   const addDemoData = async () => {
     setIsLoading(true);
@@ -117,16 +215,18 @@ const AdminDashboard = () => {
       }
 
       toast.success("נתוני דמו נוספו בהצלחה!");
+      fetchStats(); // Refresh stats after adding demo data
     } catch (error: any) {
       toast.error("שגיאה בהוספת נתוני דמו: " + error.message);
     } finally {
       setIsLoading(false);
     }
   };
-  const stats = [
+
+  const statsCards = [
     {
       title: "לקוחות פעילים",
-      value: "24",
+      value: stats.totalClients.toString(),
       icon: Users,
       description: "סה\"כ לקוחות במערכת",
       color: "text-blue-600",
@@ -134,7 +234,7 @@ const AdminDashboard = () => {
     },
     {
       title: "בוטים פעילים",
-      value: "156",
+      value: stats.activeBots.toString(),
       icon: Bot,
       description: "בוטים מחוברים כעת",
       color: "text-primary",
@@ -142,7 +242,7 @@ const AdminDashboard = () => {
     },
     {
       title: "קבוצות במערכת",
-      value: "892",
+      value: stats.totalGroups.toString(),
       icon: FolderKanban,
       description: "סה\"כ קבוצות מנוהלות",
       color: "text-purple-600",
@@ -150,12 +250,18 @@ const AdminDashboard = () => {
     },
     {
       title: "הודעות היום",
-      value: "12,453",
+      value: stats.todayMessages.toString(),
       icon: MessageSquare,
       description: "הודעות שנשלחו היום",
       color: "text-orange-600",
       bgColor: "bg-orange-100",
     },
+  ];
+
+  const statusData = [
+    { name: "נשלחו", value: stats.successfulMessages, color: "hsl(var(--chart-1))" },
+    { name: "נכשלו", value: stats.failedMessages, color: "hsl(var(--chart-2))" },
+    { name: "ממתינות", value: stats.pendingMessages, color: "hsl(var(--chart-3))" },
   ];
 
   return (
@@ -175,7 +281,7 @@ const AdminDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat) => (
+          {statsCards.map((stat) => (
             <Card key={stat.title} className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -198,71 +304,79 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-primary" />
-                פעילות אחרונה
-              </CardTitle>
+              <CardTitle>הודעות לפי יום (7 ימים אחרונים)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <p className="font-medium">בוט חדש התחבר</p>
-                    <p className="text-sm text-muted-foreground">לקוח: ישראל כהן</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">לפני 5 דקות</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <p className="font-medium">פרסומת נשלחה</p>
-                    <p className="text-sm text-muted-foreground">150 קבוצות</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">לפני 12 דקות</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <p className="font-medium">לקוח חדש נוסף</p>
-                    <p className="text-sm text-muted-foreground">דוד לוי</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">לפני 25 דקות</span>
-                </div>
-              </div>
+              <ChartContainer
+                config={{
+                  sent: { label: "נשלחו", color: "hsl(var(--chart-1))" },
+                  failed: { label: "נכשלו", color: "hsl(var(--chart-2))" },
+                  pending: { label: "ממתינות", color: "hsl(var(--chart-3))" },
+                }}
+                className="h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={messagesByDay}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="sent" fill="hsl(var(--chart-1))" />
+                    <Bar dataKey="failed" fill="hsl(var(--chart-2))" />
+                    <Bar dataKey="pending" fill="hsl(var(--chart-3))" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>סטטוס מערכת</CardTitle>
+              <CardTitle>סטטוס הודעות</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <ChartContainer
+                config={{
+                  sent: { label: "נשלחו", color: "hsl(var(--chart-1))" },
+                  failed: { label: "נכשלו", color: "hsl(var(--chart-2))" },
+                  pending: { label: "ממתינות", color: "hsl(var(--chart-3))" },
+                }}
+                className="h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name}: ${(percent * 100).toFixed(0)}%`
+                      }
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {statusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+              <div className="mt-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">שרת ראשי</span>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
-                    <span className="text-sm text-green-600">פעיל</span>
-                  </span>
+                  <span className="text-sm font-medium">הודעות שנשלחו</span>
+                  <span className="text-sm font-bold">{stats.successfulMessages}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">מסד נתונים</span>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
-                    <span className="text-sm text-green-600">פעיל</span>
-                  </span>
+                  <span className="text-sm font-medium">הודעות שנכשלו</span>
+                  <span className="text-sm font-bold">{stats.failedMessages}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">שירות בוטים</span>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
-                    <span className="text-sm text-green-600">פעיל</span>
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">שירות תזמונים</span>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
-                    <span className="text-sm text-green-600">פעיל</span>
-                  </span>
+                  <span className="text-sm font-medium">הודעות ממתינות</span>
+                  <span className="text-sm font-bold">{stats.pendingMessages}</span>
                 </div>
               </div>
             </CardContent>
