@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bot, Plus, Trash2, QrCode, AlertCircle } from "lucide-react";
+import { Bot, Plus, Trash2, QrCode, AlertCircle, RefreshCw } from "lucide-react";
+import * as api from "@/lib/api";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -36,20 +37,15 @@ const ClientBotsManagement = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [botToDelete, setBotToDelete] = useState<string | null>(null);
   const [newBotName, setNewBotName] = useState("");
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
-  // Fetch user's bots
+  // Fetch user's bots from external API
   const { data: bots = [], isLoading } = useQuery({
     queryKey: ["client-bots", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from("bots")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
+      return await api.getBots(user.id);
     },
     enabled: !!user?.id,
   });
@@ -74,19 +70,7 @@ const ClientBotsManagement = () => {
   const addBotMutation = useMutation({
     mutationFn: async (botName: string) => {
       if (!user?.id) throw new Error("אין משתמש מחובר");
-      
-      const { data, error } = await supabase
-        .from("bots")
-        .insert({
-          bot_name: botName,
-          user_id: user.id,
-          status: "pending",
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await api.createBot(botName, user.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-bots"] });
@@ -108,12 +92,7 @@ const ClientBotsManagement = () => {
 
   const deleteBotMutation = useMutation({
     mutationFn: async (botId: string) => {
-      const { error } = await supabase
-        .from("bots")
-        .delete()
-        .eq("id", botId);
-
-      if (error) throw error;
+      await api.deleteBot(botId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-bots"] });
@@ -256,25 +235,54 @@ const ClientBotsManagement = () => {
                     </div>
                   </div>
 
-                  {bot.status === "pending" && bot.qr_code && (
-                    <div className="border rounded-lg p-4 bg-muted/50">
-                      <div className="flex items-center gap-2 mb-2">
-                        <QrCode className="h-4 w-4" />
-                        <span className="text-sm font-medium">סרוק QR לחיבור</span>
-                      </div>
-                      <img
-                        src={bot.qr_code}
-                        alt="QR Code"
-                        className="w-full max-w-[200px] mx-auto"
-                      />
-                    </div>
-                  )}
-
                   <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const qrData = await api.getBotQR(bot.id);
+                          setQrCodeUrl(qrData.qr_code);
+                          setIsQrDialogOpen(true);
+                        } catch (error) {
+                          toast({
+                            title: "שגיאה בטעינת QR",
+                            description: "לא ניתן לטעון את קוד ה-QR",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={bot.status !== "connected"}
+                    >
+                      <QrCode className="h-4 w-4" />
+                      הצג QR
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const statusData = await api.getBotStatus(bot.id);
+                          toast({
+                            title: "סטטוס בוט",
+                            description: `הבוט כרגע ${statusData.status === "connected" ? "מחובר" : "לא מחובר"}`,
+                          });
+                          queryClient.invalidateQueries({ queryKey: ["client-bots"] });
+                        } catch (error) {
+                          toast({
+                            title: "שגיאה בבדיקת סטטוס",
+                            description: "לא ניתן לבדוק את סטטוס הבוט",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      בדוק סטטוס
+                    </Button>
                     <Button
                       variant="destructive"
                       size="sm"
-                      className="flex-1"
                       onClick={() => setBotToDelete(bot.id)}
                     >
                       <Trash2 className="h-4 w-4 ml-2" />
@@ -337,10 +345,31 @@ const ClientBotsManagement = () => {
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    </AppLayout>
-  );
-};
+          </AlertDialog>
 
-export default ClientBotsManagement;
+          {/* QR Code Dialog */}
+          <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>קוד QR להתחברות</DialogTitle>
+                <DialogDescription>
+                  סרוק את הקוד הזה עם WhatsApp כדי לחבר את הבוט
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-center p-6">
+                {qrCodeUrl ? (
+                  <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64" />
+                ) : (
+                  <div className="w-64 h-64 flex items-center justify-center bg-muted rounded">
+                    <p className="text-muted-foreground">אין קוד QR זמין</p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </AppLayout>
+    );
+  };
+  
+  export default ClientBotsManagement;

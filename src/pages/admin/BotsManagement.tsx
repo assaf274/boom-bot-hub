@@ -20,9 +20,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
-import { Tables } from "@/integrations/supabase/types";
+import * as api from "@/lib/api";
 
-type Bot = Tables<"bots">;
+type Bot = api.Bot;
 
 const BotsManagement = () => {
   const { toast } = useToast();
@@ -37,17 +37,24 @@ const BotsManagement = () => {
   const [selectedBot, setSelectedBot] = useState<any | null>(null);
   const [editBotName, setEditBotName] = useState("");
 
-  // Fetch all bots
+  // Fetch all bots from external API
   const { data: bots, isLoading } = useQuery({
     queryKey: ["bots"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bots")
-        .select("*, profiles(full_name, email)")
-        .order("created_at", { ascending: false });
+      const botsData = await api.getAllBots();
       
-      if (error) throw error;
-      return data;
+      // Fetch profiles data from Supabase for display
+      const userIds = [...new Set(botsData.map(bot => bot.user_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+      
+      // Merge bot data with profile data
+      return botsData.map(bot => ({
+        ...bot,
+        profiles: profiles?.find(p => p.id === bot.user_id)
+      }));
     },
   });
 
@@ -88,21 +95,10 @@ const BotsManagement = () => {
     },
   });
 
-  // Add bot mutation
+  // Add bot mutation using external API
   const addBotMutation = useMutation({
     mutationFn: async ({ botName, userId }: { botName: string; userId: string }) => {
-      const { data, error } = await supabase
-        .from("bots")
-        .insert({
-          bot_name: botName,
-          user_id: userId,
-          status: "pending",
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+      return await api.createBot(botName, userId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
@@ -123,15 +119,10 @@ const BotsManagement = () => {
     },
   });
 
-  // Update bot status mutation
+  // Update bot status mutation using external API
   const updateStatusMutation = useMutation({
     mutationFn: async ({ botId, status }: { botId: string; status: "connected" | "disconnected" | "pending" }) => {
-      const { error } = await supabase
-        .from("bots")
-        .update({ status })
-        .eq("id", botId);
-      
-      if (error) throw error;
+      return await api.updateBotStatus(botId, status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
@@ -149,15 +140,10 @@ const BotsManagement = () => {
     },
   });
 
-  // Edit bot mutation
+  // Edit bot mutation using external API
   const editBotMutation = useMutation({
     mutationFn: async ({ botId, botName }: { botId: string; botName: string }) => {
-      const { error } = await supabase
-        .from("bots")
-        .update({ bot_name: botName })
-        .eq("id", botId);
-      
-      if (error) throw error;
+      return await api.updateBotName(botId, botName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
@@ -178,15 +164,10 @@ const BotsManagement = () => {
     },
   });
 
-  // Delete bot mutation
+  // Delete bot mutation using external API
   const deleteBotMutation = useMutation({
     mutationFn: async (botId: string) => {
-      const { error } = await supabase
-        .from("bots")
-        .delete()
-        .eq("id", botId);
-      
-      if (error) throw error;
+      await api.deleteBot(botId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
@@ -206,24 +187,14 @@ const BotsManagement = () => {
     },
   });
 
-  // Refresh QR code mutation
+  // Refresh QR code mutation using external API
   const refreshQrMutation = useMutation({
     mutationFn: async (bot: any) => {
-      // Simulate QR code generation - in real implementation, this would call WhatsApp API
-      const mockQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=whatsapp-bot-${bot.id}`;
-      
-      const { error } = await supabase
-        .from("bots")
-        .update({ qr_code: mockQrCode })
-        .eq("id", bot.id);
-      
-      if (error) throw error;
-      return { qrCode: mockQrCode, bot };
+      return await api.refreshBotQR(bot.id);
     },
-    onSuccess: ({ qrCode, bot }) => {
+    onSuccess: (qrData) => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
-      setQrCodeUrl(qrCode);
-      setSelectedBot(bot);
+      setQrCodeUrl(qrData.qr_code);
       setIsQrDialogOpen(true);
       toast({
         title: "QR Code נוצר",
@@ -434,7 +405,20 @@ const BotsManagement = () => {
                       size="sm"
                       variant="outline"
                       className="flex-1"
-                      onClick={() => refreshQrMutation.mutate(bot)}
+                      onClick={async () => {
+                        try {
+                          const qrData = await api.getBotQR(bot.id);
+                          setQrCodeUrl(qrData.qr_code);
+                          setSelectedBot(bot);
+                          setIsQrDialogOpen(true);
+                        } catch (error) {
+                          toast({
+                            title: "שגיאה בטעינת QR",
+                            description: "לא ניתן לטעון את קוד ה-QR",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
                       disabled={refreshQrMutation.isPending}
                     >
                       <QrCode className="h-4 w-4 ml-1" />
@@ -450,12 +434,22 @@ const BotsManagement = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() =>
-                        updateStatusMutation.mutate({
-                          botId: bot.id,
-                          status: bot.status === "connected" ? "disconnected" : "connected",
-                        })
-                      }
+                      onClick={async () => {
+                        try {
+                          const statusData = await api.getBotStatus(bot.id);
+                          toast({
+                            title: "סטטוס בוט",
+                            description: `הבוט כרגע ${statusData.status === "connected" ? "מחובר" : "לא מחובר"}`,
+                          });
+                          queryClient.invalidateQueries({ queryKey: ["bots"] });
+                        } catch (error) {
+                          toast({
+                            title: "שגיאה בבדיקת סטטוס",
+                            description: "לא ניתן לבדוק את סטטוס הבוט",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
                       disabled={updateStatusMutation.isPending}
                     >
                       <RefreshCw className={`h-4 w-4 ${updateStatusMutation.isPending ? 'animate-spin' : ''}`} />
