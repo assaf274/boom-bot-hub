@@ -58,7 +58,7 @@ export function AppSidebar() {
   const menuItems = isAdmin ? adminMenuItems : clientMenuItems;
 
   return (
-    <Sidebar className="border-l" collapsible="icon">
+    <Sidebar className="border-r" collapsible="icon" side="right">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">

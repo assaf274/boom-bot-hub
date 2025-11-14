@@ -11,13 +11,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full" dir="rtl">
-        <AppSidebar />
         <div className="flex-1 flex flex-col">
           <AppNavbar />
           <main className="flex-1 bg-muted/30">
             {children}
           </main>
         </div>
+        <AppSidebar />
       </div>
     </SidebarProvider>
   );
