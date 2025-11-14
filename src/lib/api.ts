@@ -1,4 +1,22 @@
-const API_URL = import.meta.env.VITE_API_URL;
+import { supabase } from "@/integrations/supabase/client";
+
+// Helper function to call the bot-proxy edge function
+const callBotProxy = async (path: string, options: { method: string; body?: any } = { method: "GET" }) => {
+  const { data, error } = await supabase.functions.invoke('bot-proxy', {
+    body: {
+      path,
+      method: options.method,
+      body: options.body,
+    },
+  });
+
+  if (error) {
+    console.error("Bot proxy error:", error);
+    throw new Error(error.message);
+  }
+
+  return data;
+};
 
 export interface Bot {
   id: string;
@@ -31,18 +49,7 @@ export interface BotQR {
  */
 export const getBots = async (userId: string): Promise<Bot[]> => {
   try {
-    const response = await fetch(`${API_URL}/bots?userId=${userId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch bots: ${response.statusText}`);
-    }
-
-    return await response.json();
+    return await callBotProxy(`/bots?userId=${userId}`, { method: "GET" });
   } catch (error) {
     console.error("Error fetching bots:", error);
     throw error;
@@ -54,18 +61,7 @@ export const getBots = async (userId: string): Promise<Bot[]> => {
  */
 export const getAllBots = async (): Promise<Bot[]> => {
   try {
-    const response = await fetch(`${API_URL}/bots`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch bots: ${response.statusText}`);
-    }
-
-    return await response.json();
+    return await callBotProxy('/bots', { method: "GET" });
   } catch (error) {
     console.error("Error fetching all bots:", error);
     throw error;
@@ -77,18 +73,7 @@ export const getAllBots = async (): Promise<Bot[]> => {
  */
 export const getBotStatus = async (botId: string): Promise<BotStatus> => {
   try {
-    const response = await fetch(`${API_URL}/bot/${botId}/status`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch bot status: ${response.statusText}`);
-    }
-
-    return await response.json();
+    return await callBotProxy(`/bot/${botId}/status`, { method: "GET" });
   } catch (error) {
     console.error("Error fetching bot status:", error);
     throw error;
@@ -100,18 +85,7 @@ export const getBotStatus = async (botId: string): Promise<BotStatus> => {
  */
 export const getBotQR = async (botId: string): Promise<BotQR> => {
   try {
-    const response = await fetch(`${API_URL}/bot/${botId}/qr`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch bot QR: ${response.statusText}`);
-    }
-
-    return await response.json();
+    return await callBotProxy(`/bot/${botId}/qr`, { method: "GET" });
   } catch (error) {
     console.error("Error fetching bot QR:", error);
     throw error;
@@ -123,22 +97,13 @@ export const getBotQR = async (botId: string): Promise<BotQR> => {
  */
 export const createBot = async (botName: string, userId: string): Promise<Bot> => {
   try {
-    const response = await fetch(`${API_URL}/bot`, {
+    return await callBotProxy('/bot', {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      body: {
         bot_name: botName,
         user_id: userId,
-      }),
+      },
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create bot: ${response.statusText}`);
-    }
-
-    return await response.json();
   } catch (error) {
     console.error("Error creating bot:", error);
     throw error;
@@ -153,19 +118,10 @@ export const updateBotStatus = async (
   status: "connected" | "disconnected" | "pending"
 ): Promise<Bot> => {
   try {
-    const response = await fetch(`${API_URL}/bot/${botId}/status`, {
+    return await callBotProxy(`/bot/${botId}/status`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ status }),
+      body: { status },
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to update bot status: ${response.statusText}`);
-    }
-
-    return await response.json();
   } catch (error) {
     console.error("Error updating bot status:", error);
     throw error;
@@ -177,19 +133,10 @@ export const updateBotStatus = async (
  */
 export const updateBotName = async (botId: string, botName: string): Promise<Bot> => {
   try {
-    const response = await fetch(`${API_URL}/bot/${botId}`, {
+    return await callBotProxy(`/bot/${botId}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ bot_name: botName }),
+      body: { bot_name: botName },
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to update bot name: ${response.statusText}`);
-    }
-
-    return await response.json();
   } catch (error) {
     console.error("Error updating bot name:", error);
     throw error;
@@ -201,16 +148,7 @@ export const updateBotName = async (botId: string, botName: string): Promise<Bot
  */
 export const deleteBot = async (botId: string): Promise<void> => {
   try {
-    const response = await fetch(`${API_URL}/bot/${botId}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete bot: ${response.statusText}`);
-    }
+    await callBotProxy(`/bot/${botId}`, { method: "DELETE" });
   } catch (error) {
     console.error("Error deleting bot:", error);
     throw error;
@@ -222,18 +160,7 @@ export const deleteBot = async (botId: string): Promise<void> => {
  */
 export const refreshBotQR = async (botId: string): Promise<BotQR> => {
   try {
-    const response = await fetch(`${API_URL}/bot/${botId}/qr/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to refresh bot QR: ${response.statusText}`);
-    }
-
-    return await response.json();
+    return await callBotProxy(`/bot/${botId}/qr/refresh`, { method: "POST" });
   } catch (error) {
     console.error("Error refreshing bot QR:", error);
     throw error;
