@@ -2,14 +2,24 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { QrCode, RefreshCw, Trash2, CheckCircle, XCircle, Plus } from "lucide-react";
+import { QrCode, RefreshCw, Trash2, CheckCircle, XCircle, Plus, Edit, Clock } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tables } from "@/integrations/supabase/types";
 
 type Bot = Tables<"bots">;
@@ -18,9 +28,14 @@ const BotsManagement = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
   const [newBotName, setNewBotName] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedBot, setSelectedBot] = useState<any | null>(null);
+  const [editBotName, setEditBotName] = useState("");
 
   // Fetch all bots
   const { data: bots, isLoading } = useQuery({
@@ -35,6 +50,29 @@ const BotsManagement = () => {
       return data;
     },
   });
+
+  // Setup realtime subscription for bot status updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('bots-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bots'
+        },
+        (payload) => {
+          console.log('Bot change received:', payload);
+          queryClient.invalidateQueries({ queryKey: ["bots"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Fetch all profiles for the add bot dialog
   const { data: profiles } = useQuery({
@@ -111,6 +149,35 @@ const BotsManagement = () => {
     },
   });
 
+  // Edit bot mutation
+  const editBotMutation = useMutation({
+    mutationFn: async ({ botId, botName }: { botId: string; botName: string }) => {
+      const { error } = await supabase
+        .from("bots")
+        .update({ bot_name: botName })
+        .eq("id", botId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bots"] });
+      toast({
+        title: "הבוט עודכן",
+        description: "שם הבוט עודכן בהצלחה",
+      });
+      setIsEditDialogOpen(false);
+      setSelectedBot(null);
+      setEditBotName("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "שגיאה בעדכון בוט",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Delete bot mutation
   const deleteBotMutation = useMutation({
     mutationFn: async (botId: string) => {
@@ -127,6 +194,8 @@ const BotsManagement = () => {
         title: "הבוט נמחק",
         description: "הבוט הוסר מהמערכת בהצלחה",
       });
+      setIsDeleteDialogOpen(false);
+      setSelectedBot(null);
     },
     onError: (error: any) => {
       toast({
@@ -139,21 +208,23 @@ const BotsManagement = () => {
 
   // Refresh QR code mutation
   const refreshQrMutation = useMutation({
-    mutationFn: async (botId: string) => {
+    mutationFn: async (bot: any) => {
       // Simulate QR code generation - in real implementation, this would call WhatsApp API
-      const mockQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=whatsapp-bot-${botId}`;
+      const mockQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=whatsapp-bot-${bot.id}`;
       
       const { error } = await supabase
         .from("bots")
         .update({ qr_code: mockQrCode })
-        .eq("id", botId);
+        .eq("id", bot.id);
       
       if (error) throw error;
-      return mockQrCode;
+      return { qrCode: mockQrCode, bot };
     },
-    onSuccess: (qrCode) => {
+    onSuccess: ({ qrCode, bot }) => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
       setQrCodeUrl(qrCode);
+      setSelectedBot(bot);
+      setIsQrDialogOpen(true);
       toast({
         title: "QR Code נוצר",
         description: "סרוק את הקוד כדי לחבר את הבוט",
@@ -172,7 +243,7 @@ const BotsManagement = () => {
     switch (status) {
       case "connected":
         return (
-          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+          <Badge className="bg-success/10 text-success border-success">
             <CheckCircle className="h-3 w-3 ml-1" />
             מחובר
           </Badge>
@@ -184,13 +255,45 @@ const BotsManagement = () => {
             מנותק
           </Badge>
         );
+      case "error":
+        return (
+          <Badge variant="destructive">
+            <XCircle className="h-3 w-3 ml-1" />
+            שגיאה
+          </Badge>
+        );
       default:
         return (
           <Badge variant="secondary">
-            <RefreshCw className="h-3 w-3 ml-1" />
-            ממתין
+            <Clock className="h-3 w-3 ml-1 animate-pulse" />
+            ממתין לחיבור
           </Badge>
         );
+    }
+  };
+
+  const openEditDialog = (bot: any) => {
+    setSelectedBot(bot);
+    setEditBotName(bot.bot_name);
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (bot: any) => {
+    setSelectedBot(bot);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleEditBot = () => {
+    if (!editBotName.trim()) {
+      toast({
+        title: "שדה חסר",
+        description: "יש למלא את שם הבוט",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (selectedBot) {
+      editBotMutation.mutate({ botId: selectedBot.id, botName: editBotName });
     }
   };
 
@@ -288,51 +391,62 @@ const BotsManagement = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>לקוח: {bot.profiles?.full_name || "לא ידוע"}</p>
-                    <p>מספר טלפון: {bot.phone_number || "לא מחובר"}</p>
-                    <p>
-                      התחבר לאחרונה:{" "}
-                      {bot.last_active
-                        ? new Date(bot.last_active).toLocaleString("he-IL")
-                        : "אף פעם"}
-                    </p>
+                  <div className="text-sm space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">לקוח:</span>
+                      <span className="font-medium">{bot.profiles?.full_name || "לא ידוע"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">טלפון:</span>
+                      <span className="font-medium">{bot.phone_number || "לא מחובר"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">פעיל לאחרונה:</span>
+                      <span className="font-medium text-xs">
+                        {bot.last_active
+                          ? new Date(bot.last_active).toLocaleString("he-IL", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "אף פעם"}
+                      </span>
+                    </div>
+                    {bot.connected_at && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">התחבר ב:</span>
+                        <span className="font-medium text-xs">
+                          {new Date(bot.connected_at).toLocaleString("he-IL", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => refreshQrMutation.mutate(bot.id)}
-                        >
-                          <QrCode className="h-4 w-4 ml-1" />
-                          הצג QR
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent dir="rtl">
-                        <DialogHeader>
-                          <DialogTitle>QR Code - {bot.bot_name}</DialogTitle>
-                        </DialogHeader>
-                        <div className="flex flex-col items-center gap-4 py-4">
-                          {qrCodeUrl || bot.qr_code ? (
-                            <>
-                              <img
-                                src={qrCodeUrl || bot.qr_code}
-                                alt="QR Code"
-                                className="w-64 h-64"
-                              />
-                              <p className="text-sm text-muted-foreground text-center">
-                                סרוק את הקוד עם WhatsApp כדי לחבר את הבוט
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-muted-foreground">טוען QR Code...</p>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => refreshQrMutation.mutate(bot)}
+                      disabled={refreshQrMutation.isPending}
+                    >
+                      <QrCode className="h-4 w-4 ml-1" />
+                      הצג QR
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditDialog(bot)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -344,18 +458,13 @@ const BotsManagement = () => {
                       }
                       disabled={updateStatusMutation.isPending}
                     >
-                      <RefreshCw className="h-4 w-4" />
+                      <RefreshCw className={`h-4 w-4 ${updateStatusMutation.isPending ? 'animate-spin' : ''}`} />
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => {
-                        if (confirm(`האם אתה בטוח שברצונך למחוק את ${bot.bot_name}?`)) {
-                          deleteBotMutation.mutate(bot.id);
-                        }
-                      }}
-                      disabled={deleteBotMutation.isPending}
+                      onClick={() => openDeleteDialog(bot)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -365,6 +474,114 @@ const BotsManagement = () => {
             ))}
           </div>
         )}
+
+        {/* QR Code Dialog */}
+        <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+          <DialogContent dir="rtl" className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR Code - {selectedBot?.bot_name}</DialogTitle>
+              <DialogDescription>
+                סרוק את הקוד עם WhatsApp כדי לחבר את הבוט
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-4">
+              {qrCodeUrl || selectedBot?.qr_code ? (
+                <>
+                  <div className="border-4 border-primary/20 rounded-lg p-4">
+                    <img
+                      src={qrCodeUrl || selectedBot?.qr_code}
+                      alt="QR Code"
+                      className="w-64 h-64"
+                    />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      1. פתח את WhatsApp במכשיר
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      2. לחץ על תפריט (⋮) ובחר "מכשירים מקושרים"
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      3. לחץ על "קשר מכשיר" וסרוק את הקוד
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => selectedBot && refreshQrMutation.mutate(selectedBot)}
+                    variant="outline"
+                    disabled={refreshQrMutation.isPending}
+                  >
+                    <RefreshCw className={`h-4 w-4 ml-2 ${refreshQrMutation.isPending ? 'animate-spin' : ''}`} />
+                    רענן QR Code
+                  </Button>
+                </>
+              ) : (
+                <p className="text-muted-foreground">טוען QR Code...</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Bot Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent dir="rtl">
+            <DialogHeader>
+              <DialogTitle>עריכת בוט</DialogTitle>
+              <DialogDescription>
+                ערוך את שם הבוט
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-bot-name">שם הבוט</Label>
+                <Input
+                  id="edit-bot-name"
+                  placeholder="לדוגמה: בוט תמיכה"
+                  value={editBotName}
+                  onChange={(e) => setEditBotName(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setSelectedBot(null);
+                    setEditBotName("");
+                  }}
+                >
+                  ביטול
+                </Button>
+                <Button onClick={handleEditBot} disabled={editBotMutation.isPending}>
+                  {editBotMutation.isPending ? "מעדכן..." : "עדכן"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent dir="rtl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+              <AlertDialogDescription>
+                פעולה זו תמחק את הבוט "{selectedBot?.bot_name}" ואת כל ההודעות הקשורות אליו.
+                לא ניתן לבטל פעולה זו.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => { setIsDeleteDialogOpen(false); setSelectedBot(null); }}>
+                ביטול
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => selectedBot && deleteBotMutation.mutate(selectedBot.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                מחק
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
