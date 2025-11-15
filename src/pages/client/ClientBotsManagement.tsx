@@ -327,7 +327,7 @@ const ClientBotsManagement = () => {
                           });
                         }
                       }}
-                      disabled={bot.status !== "connected" || !bot.external_bot_id}
+                      disabled={!bot.external_bot_id}
                     >
                       <QrCode className="h-4 w-4" />
                       הצג QR
