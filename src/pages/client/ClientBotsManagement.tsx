@@ -41,7 +41,11 @@ const ClientBotsManagement = () => {
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
   // Fetch user's bots from Supabase
-  const { data: bots = [], isLoading, error } = useQuery({
+  const {
+    data: bots = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["client-bots", user?.id],
     queryFn: async () => {
       if (!user?.id) {
@@ -55,12 +59,12 @@ const ClientBotsManagement = () => {
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
-        
+
         if (error) {
           console.error("Supabase error:", error);
           throw error;
         }
-        
+
         console.log("Bots fetched successfully from Supabase:", data);
         return data || [];
       } catch (err) {
@@ -74,21 +78,21 @@ const ClientBotsManagement = () => {
   // Setup realtime subscription for bot updates
   useEffect(() => {
     if (!user?.id) return;
-    
+
     const channel = supabase
-      .channel('client-bots-changes')
+      .channel("client-bots-changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'bots',
-          filter: `user_id=eq.${user.id}`
+          event: "*",
+          schema: "public",
+          table: "bots",
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Bot change received:', payload);
+          console.log("Bot change received:", payload);
           queryClient.invalidateQueries({ queryKey: ["client-bots", user.id] });
-        }
+        },
       )
       .subscribe();
 
@@ -107,12 +111,8 @@ const ClientBotsManagement = () => {
     queryKey: ["user-profile", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("max_bots")
-        .eq("id", user.id)
-        .single();
-      
+      const { data, error } = await supabase.from("profiles").select("max_bots").eq("id", user.id).single();
+
       if (error) throw error;
       return data;
     },
@@ -239,11 +239,7 @@ const ClientBotsManagement = () => {
               נהל את הבוטים שלך ({bots.length}/{maxBots})
             </p>
           </div>
-          <Button
-            onClick={() => setIsAddDialogOpen(true)}
-            disabled={!canAddBot}
-            className="gap-2"
-          >
+          <Button onClick={() => setIsAddDialogOpen(true)} disabled={!canAddBot} className="gap-2">
             <Plus className="h-4 w-4" />
             הוסף בוט חדש
           </Button>
@@ -254,9 +250,7 @@ const ClientBotsManagement = () => {
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-5 w-5 text-orange-600" />
-                <p className="text-sm">
-                  הגעת למכסה המקסימלית של בוטים. צור קשר עם התמיכה להגדלת המכסה.
-                </p>
+                <p className="text-sm">הגעת למכסה המקסימלית של בוטים. צור קשר עם התמיכה להגדלת המכסה.</p>
               </div>
             </CardContent>
           </Card>
@@ -271,9 +265,7 @@ const ClientBotsManagement = () => {
             <CardContent className="py-12 text-center">
               <Bot className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <p className="text-lg font-medium mb-2">אין בוטים עדיין</p>
-              <p className="text-muted-foreground mb-4">
-                התחל על ידי הוספת הבוט הראשון שלך
-              </p>
+              <p className="text-muted-foreground mb-4">התחל על ידי הוספת הבוט הראשון שלך</p>
               <Button onClick={() => setIsAddDialogOpen(true)} disabled={!canAddBot}>
                 <Plus className="h-4 w-4 ml-2" />
                 הוסף בוט
@@ -299,17 +291,13 @@ const ClientBotsManagement = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">מחובר מאז:</span>
                       <span className="font-medium">
-                        {bot.connected_at
-                          ? new Date(bot.connected_at).toLocaleDateString("he-IL")
-                          : "לא מחובר"}
+                        {bot.connected_at ? new Date(bot.connected_at).toLocaleDateString("he-IL") : "לא מחובר"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">פעיל לאחרונה:</span>
                       <span className="font-medium">
-                        {bot.last_active
-                          ? new Date(bot.last_active).toLocaleDateString("he-IL")
-                          : "אף פעם"}
+                        {bot.last_active ? new Date(bot.last_active).toLocaleDateString("he-IL") : "אף פעם"}
                       </span>
                     </div>
                   </div>
@@ -348,8 +336,17 @@ const ClientBotsManagement = () => {
                       size="sm"
                       variant="outline"
                       onClick={async () => {
+                        if (!bot.external_bot_id) {
+                          toast({
+                            title: "שגיאה",
+                            description: "מזהה בוט חיצוני חסר",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
                         try {
-                          const statusData = await api.getBotStatus(bot.id);
+                          const statusData = await api.getBotStatus(bot.external_bot_id);
                           toast({
                             title: "סטטוס בוט",
                             description: `הבוט כרגע ${statusData.status === "connected" ? "מחובר" : "לא מחובר"}`,
@@ -367,11 +364,7 @@ const ClientBotsManagement = () => {
                       <RefreshCw className="h-4 w-4" />
                       בדוק סטטוס
                     </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setBotToDelete(bot.id)}
-                    >
+                    <Button variant="destructive" size="sm" onClick={() => setBotToDelete(bot.id)}>
                       <Trash2 className="h-4 w-4 ml-2" />
                       מחק
                     </Button>
@@ -387,9 +380,7 @@ const ClientBotsManagement = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>הוסף בוט חדש</DialogTitle>
-              <DialogDescription>
-                הזן את פרטי הבוט החדש שברצונך להוסיף
-              </DialogDescription>
+              <DialogDescription>הזן את פרטי הבוט החדש שברצונך להוסיף</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -418,9 +409,7 @@ const ClientBotsManagement = () => {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
-              <AlertDialogDescription>
-                פעולה זו תמחק את הבוט לצמיתות. לא ניתן לבטל פעולה זו.
-              </AlertDialogDescription>
+              <AlertDialogDescription>פעולה זו תמחק את הבוט לצמיתות. לא ניתן לבטל פעולה זו.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>ביטול</AlertDialogCancel>
@@ -432,31 +421,29 @@ const ClientBotsManagement = () => {
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
-          </AlertDialog>
+        </AlertDialog>
 
-          {/* QR Code Dialog */}
-          <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>קוד QR להתחברות</DialogTitle>
-                <DialogDescription>
-                  סרוק את הקוד הזה עם WhatsApp כדי לחבר את הבוט
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex justify-center p-6">
-                {qrCodeUrl ? (
-                  <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64" />
-                ) : (
-                  <div className="w-64 h-64 flex items-center justify-center bg-muted rounded">
-                    <p className="text-muted-foreground">אין קוד QR זמין</p>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </AppLayout>
-    );
-  };
-  
-  export default ClientBotsManagement;
+        {/* QR Code Dialog */}
+        <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>קוד QR להתחברות</DialogTitle>
+              <DialogDescription>סרוק את הקוד הזה עם WhatsApp כדי לחבר את הבוט</DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-center p-6">
+              {qrCodeUrl ? (
+                <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64" />
+              ) : (
+                <div className="w-64 h-64 flex items-center justify-center bg-muted rounded">
+                  <p className="text-muted-foreground">אין קוד QR זמין</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppLayout>
+  );
+};
+
+export default ClientBotsManagement;
