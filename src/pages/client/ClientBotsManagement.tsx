@@ -69,6 +69,10 @@ const ClientBotsManagement = () => {
         }
 
         console.log("Bots fetched successfully from Supabase:", data);
+        console.log("🔍 Checking external_bot_id for each bot:");
+        data?.forEach(bot => {
+          console.log(`  Bot: ${bot.bot_name}, external_bot_id: ${bot.external_bot_id}, status: ${bot.status}`);
+        });
         return data || [];
       } catch (err) {
         console.error("Error fetching bots:", err);

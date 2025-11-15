@@ -38,7 +38,7 @@ serve(async (req) => {
     if (response.ok && data) {
       // POST /bot - Create new bot
       if (method === "POST" && path === "/bot") {
-        const botId = data.botId || data.id;
+        const botId = data.external_bot_id || data.botId || data.id;
         console.log("[BOT-PROXY] Creating bot in Supabase:", botId, data);
 
         const { error: insertError } = await supabase.from("bots").insert({
