@@ -39,6 +39,9 @@ const ClientBotsManagement = () => {
   const [newBotName, setNewBotName] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
+  const [currentBotExternalId, setCurrentBotExternalId] = useState<string | null>(null);
+  const [currentBotStatus, setCurrentBotStatus] = useState<string | null>(null);
+  const [isRefreshingQr, setIsRefreshingQr] = useState(false);
 
   // Fetch user's bots from Supabase
   const {
@@ -92,6 +95,13 @@ const ClientBotsManagement = () => {
         (payload) => {
           console.log("Bot change received:", payload);
           queryClient.invalidateQueries({ queryKey: ["client-bots", user.id] });
+          
+          // Update current bot status if it's the one being viewed
+          if (payload.new && typeof payload.new === 'object' && 'external_bot_id' in payload.new) {
+            if (payload.new.external_bot_id === currentBotExternalId && 'status' in payload.new) {
+              setCurrentBotStatus(payload.new.status as string);
+            }
+          }
         },
       )
       .subscribe();
@@ -99,7 +109,31 @@ const ClientBotsManagement = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, queryClient]);
+  }, [user?.id, queryClient, currentBotExternalId]);
+
+  // Auto-refresh QR code every 30 seconds when dialog is open and bot is pending
+  useEffect(() => {
+    if (!isQrDialogOpen || !currentBotExternalId || currentBotStatus !== "pending") {
+      return;
+    }
+
+    const refreshQr = async () => {
+      try {
+        setIsRefreshingQr(true);
+        const qrData = await api.getBotQR(currentBotExternalId);
+        setQrCodeUrl(qrData.qr_code);
+        console.log("QR code refreshed automatically");
+      } catch (error) {
+        console.error("Failed to refresh QR:", error);
+      } finally {
+        setIsRefreshingQr(false);
+      }
+    };
+
+    const interval = setInterval(refreshQr, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [isQrDialogOpen, currentBotExternalId, currentBotStatus]);
 
   // Show error message if query failed
   if (error) {
@@ -318,6 +352,8 @@ const ClientBotsManagement = () => {
                         try {
                           const qrData = await api.getBotQR(bot.external_bot_id);
                           setQrCodeUrl(qrData.qr_code);
+                          setCurrentBotExternalId(bot.external_bot_id);
+                          setCurrentBotStatus(bot.status);
                           setIsQrDialogOpen(true);
                         } catch (error) {
                           toast({
@@ -424,15 +460,35 @@ const ClientBotsManagement = () => {
         </AlertDialog>
 
         {/* QR Code Dialog */}
-        <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+        <Dialog open={isQrDialogOpen} onOpenChange={(open) => {
+          setIsQrDialogOpen(open);
+          if (!open) {
+            setCurrentBotExternalId(null);
+            setCurrentBotStatus(null);
+          }
+        }}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>קוד QR להתחברות</DialogTitle>
-              <DialogDescription>סרוק את הקוד הזה עם WhatsApp כדי לחבר את הבוט</DialogDescription>
+              <DialogDescription>
+                סרוק את הקוד הזה עם WhatsApp כדי לחבר את הבוט
+                {currentBotStatus === "pending" && (
+                  <span className="block mt-2 text-sm text-muted-foreground">
+                    {isRefreshingQr ? "מרענן QR..." : "מתרענן אוטומטית כל 30 שניות"}
+                  </span>
+                )}
+              </DialogDescription>
             </DialogHeader>
-            <div className="flex justify-center p-6">
+            <div className="flex justify-center p-6 relative">
               {qrCodeUrl ? (
-                <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64" />
+                <>
+                  <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64" />
+                  {isRefreshingQr && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                      <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="w-64 h-64 flex items-center justify-center bg-muted rounded">
                   <p className="text-muted-foreground">אין קוד QR זמין</p>
