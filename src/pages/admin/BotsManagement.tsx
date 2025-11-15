@@ -473,8 +473,16 @@ const BotsManagement = () => {
                       size="sm"
                       variant="outline"
                       onClick={async () => {
+                        if (!bot.external_bot_id) {
+                          toast({
+                            title: "שגיאה",
+                            description: "מזהה בוט חיצוני חסר",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
                         try {
-                          const statusData = await api.getBotStatus(bot.id);
+                          const statusData = await api.getBotStatus(bot.external_bot_id);
                           toast({
                             title: "סטטוס בוט",
                             description: `הבוט כרגע ${statusData.status === "connected" ? "מחובר" : "לא מחובר"}`,
@@ -488,7 +496,7 @@ const BotsManagement = () => {
                           });
                         }
                       }}
-                      disabled={updateStatusMutation.isPending}
+                      disabled={updateStatusMutation.isPending || !bot.external_bot_id}
                     >
                       <RefreshCw className={`h-4 w-4 ${updateStatusMutation.isPending ? 'animate-spin' : ''}`} />
                     </Button>
