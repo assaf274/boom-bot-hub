@@ -54,6 +54,7 @@ serve(async (req) => {
           connected_at: data.connected_at || null,
           last_active: data.last_active || null,
           connection_id: data.connection_id || null,
+          external_bot_id: data.botId || data.id, // Save external bot ID from API response
         });
       }
       

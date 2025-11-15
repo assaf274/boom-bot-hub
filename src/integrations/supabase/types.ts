@@ -20,6 +20,7 @@ export type Database = {
           connected_at: string | null
           connection_id: string | null
           created_at: string
+          external_bot_id: string | null
           id: string
           last_active: string | null
           phone_number: string | null
@@ -33,6 +34,7 @@ export type Database = {
           connected_at?: string | null
           connection_id?: string | null
           created_at?: string
+          external_bot_id?: string | null
           id?: string
           last_active?: string | null
           phone_number?: string | null
@@ -46,6 +48,7 @@ export type Database = {
           connected_at?: string | null
           connection_id?: string | null
           created_at?: string
+          external_bot_id?: string | null
           id?: string
           last_active?: string | null
           phone_number?: string | null
