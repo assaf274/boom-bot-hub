@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Bot, Plus, Trash2, QrCode, AlertCircle, RefreshCw } from "lucide-react";
 import * as api from "@/lib/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -40,7 +40,7 @@ const ClientBotsManagement = () => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
-  // Fetch user's bots from external API
+  // Fetch user's bots from Supabase
   const { data: bots = [], isLoading, error } = useQuery({
     queryKey: ["client-bots", user?.id],
     queryFn: async () => {
@@ -48,11 +48,21 @@ const ClientBotsManagement = () => {
         console.log("No user ID found");
         return [];
       }
-      console.log("Fetching bots for user:", user.id);
+      console.log("Fetching bots for user from Supabase:", user.id);
       try {
-        const result = await api.getBots(user.id);
-        console.log("Bots fetched successfully:", result);
-        return result;
+        const { data, error } = await supabase
+          .from("bots")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        
+        if (error) {
+          console.error("Supabase error:", error);
+          throw error;
+        }
+        
+        console.log("Bots fetched successfully from Supabase:", data);
+        return data || [];
       } catch (err) {
         console.error("Error fetching bots:", err);
         throw err;
@@ -60,6 +70,32 @@ const ClientBotsManagement = () => {
     },
     enabled: !!user?.id,
   });
+
+  // Setup realtime subscription for bot updates
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const channel = supabase
+      .channel('client-bots-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bots',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Bot change received:', payload);
+          queryClient.invalidateQueries({ queryKey: ["client-bots", user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
 
   // Show error message if query failed
   if (error) {
