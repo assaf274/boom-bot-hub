@@ -81,11 +81,14 @@ export const getBotStatus = async (botId: string): Promise<BotStatus> => {
 };
 
 /**
- * Get bot QR code
+ * Get bot QR code using external bot ID
  */
-export const getBotQR = async (botId: string): Promise<BotQR> => {
+export const getBotQR = async (externalBotId: string): Promise<BotQR> => {
   try {
-    return await callBotProxy(`/bot/${botId}/qr`, { method: "GET" });
+    if (!externalBotId) {
+      throw new Error("מזהה בוט חיצוני חסר");
+    }
+    return await callBotProxy(`/bot/${externalBotId}/qr`, { method: "GET" });
   } catch (error) {
     console.error("Error fetching bot QR:", error);
     throw error;

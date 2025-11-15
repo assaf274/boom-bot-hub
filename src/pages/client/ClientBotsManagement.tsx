@@ -319,8 +319,16 @@ const ClientBotsManagement = () => {
                       size="sm"
                       variant="outline"
                       onClick={async () => {
+                        if (!bot.external_bot_id) {
+                          toast({
+                            title: "שגיאה",
+                            description: "מזהה בוט חיצוני חסר. אנא צור קשר עם התמיכה.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
                         try {
-                          const qrData = await api.getBotQR(bot.id);
+                          const qrData = await api.getBotQR(bot.external_bot_id);
                           setQrCodeUrl(qrData.qr_code);
                           setIsQrDialogOpen(true);
                         } catch (error) {
@@ -331,7 +339,7 @@ const ClientBotsManagement = () => {
                           });
                         }
                       }}
-                      disabled={bot.status !== "connected"}
+                      disabled={bot.status !== "connected" || !bot.external_bot_id}
                     >
                       <QrCode className="h-4 w-4" />
                       הצג QR
