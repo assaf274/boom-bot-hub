@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Sessions (contains sensitive auth data)
+sessions/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# PM2
+.pm2/

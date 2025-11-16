@@ -1,0 +1,32 @@
+# Systemd service file for WhatsApp Bot Server
+# Copy to: /etc/systemd/system/whatsapp-bots.service
+#
+# Commands:
+#   sudo systemctl enable whatsapp-bots  - Enable on boot
+#   sudo systemctl start whatsapp-bots   - Start service
+#   sudo systemctl stop whatsapp-bots    - Stop service
+#   sudo systemctl restart whatsapp-bots - Restart service
+#   sudo systemctl status whatsapp-bots  - Check status
+#   sudo journalctl -u whatsapp-bots -f  - View logs
+
+[Unit]
+Description=WhatsApp Web.js Multi-Bot Server
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/opt/whatsapp-bots
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=whatsapp-bots
+
+# Environment variables (optional)
+Environment="NODE_ENV=production"
+Environment="PORT=3001"
+
+[Install]
+WantedBy=multi-user.target
