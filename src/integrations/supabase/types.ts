@@ -17,55 +17,20 @@ export type Database = {
       bots: {
         Row: {
           bot_name: string
-          connected_at: string | null
-          connection_id: string | null
-          created_at: string
-          external_bot_id: string | null
-          id: string
-          last_active: string | null
-          phone_number: string | null
-          qr_code: string | null
-          status: Database["public"]["Enums"]["bot_status"]
-          updated_at: string
-          user_id: string
+          external_bot_id: string
+          status: string
         }
         Insert: {
           bot_name: string
-          connected_at?: string | null
-          connection_id?: string | null
-          created_at?: string
-          external_bot_id?: string | null
-          id?: string
-          last_active?: string | null
-          phone_number?: string | null
-          qr_code?: string | null
-          status?: Database["public"]["Enums"]["bot_status"]
-          updated_at?: string
-          user_id: string
+          external_bot_id: string
+          status: string
         }
         Update: {
           bot_name?: string
-          connected_at?: string | null
-          connection_id?: string | null
-          created_at?: string
-          external_bot_id?: string | null
-          id?: string
-          last_active?: string | null
-          phone_number?: string | null
-          qr_code?: string | null
-          status?: Database["public"]["Enums"]["bot_status"]
-          updated_at?: string
-          user_id?: string
+          external_bot_id?: string
+          status?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "bots_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       groups: {
         Row: {
@@ -152,13 +117,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "messages_bot_id_fkey"
-            columns: ["bot_id"]
-            isOneToOne: false
-            referencedRelation: "bots"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "messages_group_id_fkey"
             columns: ["group_id"]
