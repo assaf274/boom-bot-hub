@@ -16,19 +16,22 @@ export type Database = {
     Tables: {
       bots: {
         Row: {
-          bot_name: string
-          external_bot_id: string
-          status: string
+          bot_name: string | null
+          external_bot_id: string | null
+          id: number
+          status: string | null
         }
         Insert: {
-          bot_name: string
-          external_bot_id: string
-          status: string
+          bot_name?: string | null
+          external_bot_id?: string | null
+          id?: number
+          status?: string | null
         }
         Update: {
-          bot_name?: string
-          external_bot_id?: string
-          status?: string
+          bot_name?: string | null
+          external_bot_id?: string | null
+          id?: number
+          status?: string | null
         }
         Relationships: []
       }
