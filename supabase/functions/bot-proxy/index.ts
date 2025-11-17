@@ -63,12 +63,47 @@ serve(async (req) => {
       return new Response(JSON.stringify(botsData?.map(bot => ({
         id: bot.external_bot_id,
         external_bot_id: bot.external_bot_id,
+        bot_name: bot.bot_name,
         status: bot.status,
+        user_id: bot.user_id,
+        customer_id: bot.customer_id,
         phone_number: bot.phone_number,
         connected_at: bot.connected_at,
         last_active: bot.last_active
       })) || []), {
         status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Handle GET /bot/:id/qr - Forward to external server
+    if (method === "GET" && path.match(/^\/bot\/[^/]+\/qr$/)) {
+      const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const responseText = await response.text();
+      const data = responseText ? JSON.parse(responseText) : null;
+
+      return new Response(JSON.stringify(data), {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Handle GET /bot/:id/status - Forward to external server
+    if (method === "GET" && path.match(/^\/bot\/[^/]+\/status$/)) {
+      const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const responseText = await response.text();
+      const data = responseText ? JSON.parse(responseText) : null;
+
+      return new Response(JSON.stringify(data), {
+        status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -84,6 +119,7 @@ serve(async (req) => {
       body.user_id = user.id;
     }
 
+    // Forward all other requests to external server
     const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -93,6 +129,7 @@ serve(async (req) => {
     const responseText = await response.text();
     const data = responseText ? JSON.parse(responseText) : null;
 
+    // Handle Supabase side effects
     if (response.ok && data) {
       if (method === "POST" && path === "/bot") {
         await supabase.from("bots").insert({
