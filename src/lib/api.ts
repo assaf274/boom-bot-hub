@@ -105,6 +105,7 @@ export const createBot = async (botName: string, userId: string): Promise<Bot> =
       body: {
         bot_name: botName,
         user_id: userId,
+        customer_id: userId, // Set customer_id to the selected user
       },
     });
   } catch (error) {
