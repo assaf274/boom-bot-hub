@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_target_groups: {
+        Row: {
+          created_at: string
+          external_bot_id: string
+          group_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_bot_id: string
+          group_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_bot_id?: string
+          group_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bots: {
         Row: {
           bot_name: string | null
@@ -212,7 +236,6 @@ export type Database = {
           notification_preferences: Json | null
           phone: string | null
           signature: string | null
-          target_group_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -226,7 +249,6 @@ export type Database = {
           notification_preferences?: Json | null
           phone?: string | null
           signature?: string | null
-          target_group_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -240,7 +262,6 @@ export type Database = {
           notification_preferences?: Json | null
           phone?: string | null
           signature?: string | null
-          target_group_id?: string | null
           updated_at?: string | null
         }
         Relationships: []
