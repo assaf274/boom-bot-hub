@@ -114,10 +114,10 @@ const ClientsManagement = () => {
 
       if (profilesError) throw profilesError;
 
-      // Fetch bots count for each client
+      // Fetch bots count for each client (by customer_id)
       const { data: bots, error: botsError } = await supabase
         .from("bots")
-        .select("user_id");
+        .select("customer_id");
 
       if (botsError) throw botsError;
 
@@ -128,9 +128,11 @@ const ClientsManagement = () => {
 
       if (groupsError) throw groupsError;
 
-      // Count bots and groups per user
+      // Count bots per customer (not by creator)
       const botsCount = bots?.reduce((acc, bot) => {
-        acc[bot.user_id] = (acc[bot.user_id] || 0) + 1;
+        if (bot.customer_id) {
+          acc[bot.customer_id] = (acc[bot.customer_id] || 0) + 1;
+        }
         return acc;
       }, {} as Record<string, number>) || {};
 
