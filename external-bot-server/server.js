@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const { createClient } = require('@supabase/supabase-js');
 const qrcode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
@@ -11,8 +12,42 @@ const { loadExistingBotsFromSupabase } = require('./loadExistingBots');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 // Store active bot instances
 const bots = new Map();
+
+// Global state for master group ID
+let masterGroupId = null;
+
+// Load master group ID from Supabase
+async function loadMasterGroupId() {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'MASTER_GROUP_ID')
+      .maybeSingle();
+    
+    if (error) {
+      console.error('❌ Error loading master group ID:', error);
+      return;
+    }
+    
+    if (data && data.value) {
+      masterGroupId = data.value;
+      console.log('✅ Master Group ID loaded from Supabase:', masterGroupId);
+    } else {
+      console.warn('⚠️  No MASTER_GROUP_ID found in system_settings');
+    }
+  } catch (error) {
+    console.error('❌ Failed to load master group ID:', error);
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -103,17 +138,9 @@ function createBotInstance(botId) {
     botData.lastActive = new Date();
     
     try {
-      const MASTER_GROUP_ID = process.env.MASTER_GROUP_ID;
-      
       // Check if message is from MASTER_GROUP
-      if (MASTER_GROUP_ID && message.from === MASTER_GROUP_ID) {
+      if (masterGroupId && message.from === masterGroupId) {
         console.log(`[BOT-${botId}] Received message from MASTER_GROUP`);
-        
-        // Fetch target groups from Supabase
-        const { createClient } = require('@supabase/supabase-js');
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        const supabase = createClient(supabaseUrl, supabaseKey);
         
         // First, find the bot in the database to get its internal ID
         const { data: botRecord, error: botError } = await supabase
@@ -394,6 +421,21 @@ app.delete('/bot/:id', (req, res) => {
   }
 });
 
+// GET /system/reload-settings - Reload system settings from Supabase
+app.get('/system/reload-settings', async (req, res) => {
+  try {
+    await loadMasterGroupId();
+    res.json({ 
+      success: true, 
+      message: 'System settings reloaded',
+      masterGroupId: masterGroupId 
+    });
+  } catch (error) {
+    console.error('Error reloading system settings:', error);
+    res.status(500).json({ error: 'Failed to reload system settings' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -408,6 +450,9 @@ app.listen(PORT, async () => {
   console.log(`🚀 Bot server running on port ${PORT}`);
   console.log(`📁 Sessions directory: ${sessionsDir}`);
   console.log(`🤖 Ready to manage WhatsApp bots`);
+  
+  // Load master group ID from Supabase
+  await loadMasterGroupId();
   
   // Load existing bots from Supabase (if configured)
   await loadExistingBotsFromSupabase(createBotInstance);
