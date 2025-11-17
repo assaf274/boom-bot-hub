@@ -130,10 +130,14 @@ app.get('/bots', (req, res) => {
 
 // POST /bot - Create a new bot
 app.post('/bot', (req, res) => {
-  const { bot_name, user_id } = req.body;
+  const { bot_name, user_id, customer_id } = req.body;
   
   if (!bot_name) {
     return res.status(400).json({ error: 'bot_name is required' });
+  }
+
+  if (!customer_id) {
+    return res.status(400).json({ error: 'Missing customer_id in request' });
   }
 
   // Use bot_name as external_bot_id
@@ -151,6 +155,8 @@ app.post('/bot', (req, res) => {
       id: botId,
       external_bot_id: botId,
       bot_name,
+      user_id,
+      customer_id,
       status: 'pending',
       created_at: new Date().toISOString()
     });

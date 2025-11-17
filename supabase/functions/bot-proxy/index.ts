@@ -77,22 +77,29 @@ serve(async (req) => {
       }
     }
 
-    // Add user_id to body for POST operations
+    // Handle customer_id for POST operations
     if (method === "POST" && path === "/bot") {
-      // If admin is creating a bot for a specific user, use provided user_id
-      // Otherwise, use the authenticated user's id
-      if (!body.user_id || (!isAdmin && body.user_id !== user.id)) {
-        body.user_id = user.id;
-      }
-      
-      // Validate that user_id is provided
-      if (!body.user_id) {
-        console.error("[BOT-PROXY] Missing user_id in bot creation");
+      // Validate that customer_id is provided
+      if (!body.customer_id) {
+        console.error("[BOT-PROXY] Missing customer_id in bot creation");
         return new Response(JSON.stringify({ error: "Missing customer_id in request" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      
+      // If admin is creating a bot for a specific customer, allow it
+      // Otherwise, ensure non-admin can only create bots for themselves
+      if (!isAdmin && body.customer_id !== user.id) {
+        console.error("[BOT-PROXY] Unauthorized: User trying to create bot for another customer");
+        return new Response(JSON.stringify({ error: "Forbidden: Cannot create bot for another customer" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // Set user_id to the authenticated user (who created the bot)
+      body.user_id = user.id;
     }
 
     console.log(`[BOT-PROXY] ${method} -> ${EXTERNAL_API_URL}${path}`, body);
@@ -119,7 +126,8 @@ serve(async (req) => {
         const { error: insertError } = await supabase.from("bots").insert({
           external_bot_id: botId,
           bot_name: data.bot_name || body.bot_name,
-          user_id: data.user_id || body.user_id,
+          user_id: body.user_id, // User who created the bot
+          customer_id: body.customer_id, // Customer who owns the bot
           status: data.status || "pending",
           phone_number: data.phone_number || null,
           qr_code: data.qr_code || null,

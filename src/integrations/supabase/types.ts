@@ -20,6 +20,7 @@ export type Database = {
           connected_at: string | null
           connection_id: string | null
           created_at: string | null
+          customer_id: string | null
           external_bot_id: string | null
           id: number
           last_active: string | null
@@ -34,6 +35,7 @@ export type Database = {
           connected_at?: string | null
           connection_id?: string | null
           created_at?: string | null
+          customer_id?: string | null
           external_bot_id?: string | null
           id?: number
           last_active?: string | null
@@ -48,6 +50,7 @@ export type Database = {
           connected_at?: string | null
           connection_id?: string | null
           created_at?: string | null
+          customer_id?: string | null
           external_bot_id?: string | null
           id?: number
           last_active?: string | null
@@ -57,7 +60,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bots_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       groups: {
         Row: {
