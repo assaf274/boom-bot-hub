@@ -169,16 +169,31 @@ async function createBotInstance(botId, customerId = null) {
       if (message.from === botData.customerMasterGroup) {
         console.log(`[BOT-${botId}] Received message from customer's MASTER_GROUP`);
         
-        // First, find the bot in the database to get its internal ID
+        // First, find the bot in the database to get its internal ID and customer_id
         const { data: botRecord, error: botError } = await supabase
           .from('bots')
-          .select('id')
+          .select('id, customer_id')
           .eq('external_bot_id', botId)
           .single();
         
         if (botError || !botRecord) {
           console.error(`[BOT-${botId}] Error finding bot in database:`, botError);
           return;
+        }
+        
+        // Fetch customer's message delay setting
+        let messageDelay = 0;
+        if (botRecord.customer_id) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('message_delay_seconds')
+            .eq('id', botRecord.customer_id)
+            .single();
+          
+          if (!profileError && profile && profile.message_delay_seconds) {
+            messageDelay = profile.message_delay_seconds;
+            console.log(`[BOT-${botId}] Customer message delay: ${messageDelay} seconds`);
+          }
         }
         
         // Now fetch distribution groups for this bot
@@ -217,6 +232,12 @@ async function createBotInstance(botId, customerId = null) {
             } else {
               await client.sendMessage(formattedGroupId, message.body);
               console.log(`[BOT-${botId}] Message sent to ${group.group_name || formattedGroupId}`);
+            }
+            
+            // Apply delay after each message (except the last one)
+            if (messageDelay > 0 && group !== groups[groups.length - 1]) {
+              console.log(`[BOT-${botId}] Waiting ${messageDelay} seconds before next message...`);
+              await new Promise(resolve => setTimeout(resolve, messageDelay * 1000));
             }
           } catch (err) {
             console.error(`[BOT-${botId}] Error sending to ${group.group_name || group.group_id}:`, err);

@@ -241,6 +241,7 @@ export type Database = {
           id: string
           master_group_link: string | null
           max_bots: number | null
+          message_delay_seconds: number | null
           notes: string | null
           notification_preferences: Json | null
           phone: string | null
@@ -255,6 +256,7 @@ export type Database = {
           id: string
           master_group_link?: string | null
           max_bots?: number | null
+          message_delay_seconds?: number | null
           notes?: string | null
           notification_preferences?: Json | null
           phone?: string | null
@@ -269,6 +271,7 @@ export type Database = {
           id?: string
           master_group_link?: string | null
           max_bots?: number | null
+          message_delay_seconds?: number | null
           notes?: string | null
           notification_preferences?: Json | null
           phone?: string | null
