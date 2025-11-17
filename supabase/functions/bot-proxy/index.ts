@@ -18,7 +18,69 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Authentication check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("[BOT-PROXY] Missing Authorization header");
+      return new Response(JSON.stringify({ error: "Unauthorized: Missing authentication" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify user authentication
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error("[BOT-PROXY] Authentication failed:", authError?.message);
+      return new Response(JSON.stringify({ error: "Unauthorized: Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`[BOT-PROXY] Authenticated user: ${user.id}`);
+
     const { path, method, body } = await req.json();
+
+    // Validate user authorization for sensitive operations
+    const isAdmin = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' }).then(
+      ({ data }) => data === true
+    );
+
+    // For write operations on specific bots, verify ownership or admin role
+    if ((method === "PUT" || method === "DELETE") && path.startsWith("/bot/")) {
+      const botId = path.split("/")[2];
+      
+      // Check if user owns this bot or is admin
+      const { data: bot, error: botError } = await supabase
+        .from("bots")
+        .select("user_id")
+        .eq("external_bot_id", botId)
+        .single();
+
+      if (botError || !bot) {
+        console.error("[BOT-PROXY] Bot not found:", botId);
+        return new Response(JSON.stringify({ error: "Bot not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (bot.user_id !== user.id && !isAdmin) {
+        console.error("[BOT-PROXY] Unauthorized access attempt by user:", user.id);
+        return new Response(JSON.stringify({ error: "Forbidden: You don't have access to this bot" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Add user_id to body for POST operations if not admin
+    if (method === "POST" && path === "/bot") {
+      body.user_id = user.id;
+    }
 
     console.log(`[BOT-PROXY] ${method} -> ${EXTERNAL_API_URL}${path}`, body);
 

@@ -116,7 +116,7 @@ export function GlobalSearch() {
 
       bots?.forEach((bot) => {
         searchResults.push({
-          id: bot.id,
+          id: String(bot.id),
           type: "bot",
           title: bot.bot_name,
           subtitle: bot.phone_number || "ללא מספר",
