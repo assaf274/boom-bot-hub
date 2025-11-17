@@ -287,33 +287,88 @@ app.put('/bot/:id', (req, res) => {
 });
 
 // DELETE /bot/:id - Delete a bot
-app.delete('/bot/:id', async (req, res) => {
+app.delete('/bot/:id', (req, res) => {
   const botId = req.params.id;
-  const bot = bots.get(botId);
-
-  if (!bot) {
+  console.log(`[BOT-MANAGER] Delete request for bot: ${botId}`);
+  
+  const botData = bots.get(botId);
+  if (!botData) {
+    console.log(`[BOT-MANAGER] Bot not found: ${botId}`);
     return res.status(404).json({ error: 'Bot not found' });
   }
 
   try {
-    // Logout and destroy client
-    await bot.client.logout();
-    await bot.client.destroy();
+    // Destroy the client
+    if (botData.client) {
+      botData.client.destroy().catch(err => {
+        console.error(`[BOT-${botId}] Error destroying client:`, err);
+      });
+    }
 
-    // Remove from memory
+    // Remove from active bots
     bots.delete(botId);
-
-    // Optionally delete session folder
+    
+    // Delete session files
     const sessionPath = path.join(sessionsDir, `session-${botId}`);
     if (fs.existsSync(sessionPath)) {
       fs.rmSync(sessionPath, { recursive: true, force: true });
+      console.log(`[BOT-${botId}] Session files deleted`);
     }
 
     console.log(`[BOT-${botId}] Deleted successfully`);
-    res.json({ message: 'Bot deleted successfully' });
+    res.json({ success: true, message: 'Bot deleted successfully' });
   } catch (error) {
-    console.error('[BOT-DELETE] Error:', error);
+    console.error(`[BOT-${botId}] Error deleting bot:`, error);
     res.status(500).json({ error: 'Failed to delete bot' });
+  }
+});
+
+// POST /bot/:id/send-message - Send message to WhatsApp group
+app.post('/bot/:id/send-message', async (req, res) => {
+  const botId = req.params.id;
+  const { message, groupId } = req.body;
+  
+  console.log(`[BOT-${botId}] Send message request to group: ${groupId}`);
+  
+  if (!message || !groupId) {
+    console.error(`[BOT-${botId}] Missing message or groupId`);
+    return res.status(400).json({ error: 'Missing message or groupId' });
+  }
+
+  const botData = bots.get(botId);
+  if (!botData) {
+    console.log(`[BOT-${botId}] Bot not found`);
+    return res.status(404).json({ error: 'Bot not found' });
+  }
+
+  if (botData.status !== 'connected') {
+    console.error(`[BOT-${botId}] Bot not connected, status: ${botData.status}`);
+    return res.status(400).json({ error: 'Bot is not connected' });
+  }
+
+  try {
+    console.log(`[BOT-${botId}] Sending message to group ${groupId}: ${message}`);
+    
+    // Format groupId if needed (should be in format: 972XXXXXXXXX-XXXXXXXXXX@g.us)
+    let formattedGroupId = groupId;
+    if (!groupId.includes('@g.us')) {
+      formattedGroupId = `${groupId}@g.us`;
+    }
+    
+    await botData.client.sendMessage(formattedGroupId, message);
+    
+    console.log(`[BOT-${botId}] Message sent successfully to ${formattedGroupId}`);
+    res.json({ 
+      success: true, 
+      message: 'Message sent successfully',
+      groupId: formattedGroupId 
+    });
+  } catch (error) {
+    console.error(`[BOT-${botId}] Error sending message:`, error);
+    res.status(500).json({ 
+      error: 'Failed to send message', 
+      details: error.message 
+    });
   }
 });
 

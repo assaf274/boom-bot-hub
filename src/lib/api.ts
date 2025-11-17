@@ -171,3 +171,22 @@ export const refreshBotQR = async (botId: string): Promise<BotQR> => {
     throw error;
   }
 };
+
+/**
+ * Send message to WhatsApp group via bot
+ */
+export const sendMessage = async (
+  externalBotId: string,
+  message: string,
+  groupId: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    return await callBotProxy(`/bot/${externalBotId}/send-message`, {
+      method: "POST",
+      body: { message, groupId },
+    });
+  } catch (error) {
+    console.error("Error sending message:", error);
+    throw error;
+  }
+};

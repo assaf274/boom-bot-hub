@@ -107,20 +107,22 @@ serve(async (req) => {
 
     console.log(`[BOT-PROXY] ${method} -> ${EXTERNAL_API_URL}${path}`, body);
 
-    // Call external server
-    const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    // Call external server (skip for special endpoints)
+    if (method === "GET" && (path === "/bots" || path.startsWith("/bots?"))) {
+      // This is handled below, so skip the external call
+    } else {
+      // Call external server for non-GET /bots requests
+      const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
 
-    const responseText = await response.text();
-    console.log(`[BOT-PROXY] Response status: ${response.status}`, responseText);
-    
-    const data = responseText ? JSON.parse(responseText) : null;
+      const responseText = await response.text();
+      console.log(`[BOT-PROXY] Response status: ${response.status}`, responseText);
+      
+      const data = responseText ? JSON.parse(responseText) : null;
 
-    // Sync with Supabase based on the operation
-    if (response.ok && data) {
       // POST /bot - Create new bot
       if (method === "POST" && path === "/bot") {
         const botId = data.external_bot_id || data.botId || data.id;
@@ -203,37 +205,11 @@ serve(async (req) => {
         }
       }
 
-      // GET /bots - Fetch all bots from Supabase
-      if (method === "GET" && (path === "/bots" || path.startsWith("/bots?"))) {
-        console.log("[BOT-PROXY] Fetching bots from Supabase");
-        
-        let query = supabase.from("bots").select("*");
-        
-        // Check if filtering by userId
-        const userId = path.includes("userId=") ? path.split("userId=")[1]?.split("&")[0] : null;
-        if (userId) {
-          query = query.eq("user_id", userId);
-        }
-        
-        const { data: supabaseBots, error: fetchError } = await query.order("created_at", { ascending: false });
-        
-        if (fetchError) {
-          console.error("[BOT-PROXY] Error fetching bots:", fetchError);
-        } else {
-          console.log("[BOT-PROXY] Fetched bots from Supabase:", supabaseBots?.length);
-          // Return Supabase data instead of external API data
-          return new Response(JSON.stringify(supabaseBots || []), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
+      return new Response(JSON.stringify(data), {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-
-    return new Response(JSON.stringify(data), {
-      status: response.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   } catch (error) {
     console.error("[BOT-PROXY] Error:", error);
 

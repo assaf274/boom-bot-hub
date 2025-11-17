@@ -1,14 +1,77 @@
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bot, FolderKanban, MessageSquare, Calendar, CheckCircle, XCircle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const ClientDashboard = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [todayMessages, setTodayMessages] = useState(0);
+  const [targetGroupId, setTargetGroupId] = useState("");
+
+  // Fetch user profile with target_group_id
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Update local state when profile loads
+  useEffect(() => {
+    if (profile?.target_group_id) {
+      setTargetGroupId(profile.target_group_id);
+    }
+  }, [profile]);
+
+  // Mutation to update target_group_id
+  const updateGroupIdMutation = useMutation({
+    mutationFn: async (newGroupId: string) => {
+      if (!user?.id) throw new Error("User not found");
+      const { error } = await supabase
+        .from("profiles")
+        .update({ target_group_id: newGroupId })
+        .eq("id", user.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-profile", user?.id] });
+      toast({
+        title: "✓ נשמר בהצלחה",
+        description: "מזהה הקבוצה עודכן",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "שגיאה",
+        description: "לא ניתן לשמור את מזהה הקבוצה",
+        variant: "destructive",
+      });
+      console.error("Error updating group ID:", error);
+    },
+  });
+
+  const handleSaveGroupId = () => {
+    updateGroupIdMutation.mutate(targetGroupId);
+  };
 
   // Fetch user's bots
   const { data: bots = [], isLoading: botsLoading } = useQuery({
@@ -160,30 +223,61 @@ const ClientDashboard = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat) => (
-            <Card key={stat.title} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={index} className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
                   {stat.title}
                 </CardTitle>
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                <div className={`${stat.bgColor} p-2 rounded-lg`}>
+                  <Icon className={`h-4 w-4 ${stat.color}`} />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold mb-1">
-                  {botsLoading || groupsLoading ? "..." : stat.value}
-                </div>
+                <div className="text-2xl font-bold">{stat.value}</div>
                 <p className="text-xs text-muted-foreground">
                   {stat.description}
                 </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Target Group Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle>הגדרת קבוצת יעד</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="target-group">מזהה קבוצת WhatsApp לשליחת הודעות</Label>
+            <div className="flex gap-2">
+              <Input
+                id="target-group"
+                value={targetGroupId}
+                onChange={(e) => setTargetGroupId(e.target.value)}
+                placeholder="לדוגמה: 972XXXXXXXXX-XXXXXXXXXX"
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSaveGroupId}
+                disabled={updateGroupIdMutation.isPending}
+              >
+                {updateGroupIdMutation.isPending ? "שומר..." : "שמור"}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              הזן את מזהה קבוצת ה-WhatsApp שאליה ישלחו ההודעות. ניתן למצוא את המזהה דרך המפתחים של WhatsApp.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
