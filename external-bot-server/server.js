@@ -1,4 +1,4 @@
-require('dotenv').config({ path: '/root/boom-bot-hub/external-bot-server/.env' });
+require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
