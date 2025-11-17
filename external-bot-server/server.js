@@ -1,3 +1,5 @@
+require('dotenv').config({ path: '/root/boom-bot-hub/external-bot-server/.env' });
+
 const express = require('express');
 const cors = require('cors');
 const { Client, LocalAuth } = require('whatsapp-web.js');
