@@ -46,8 +46,8 @@ const BotsManagement = () => {
     queryFn: async () => {
       const botsData = await api.getAllBots();
       
-      // Fetch profiles data from Supabase for display
-      const userIds = [...new Set(botsData.map(bot => bot.user_id))];
+      // Fetch profiles data from Supabase for display (both creators and customers)
+      const userIds = [...new Set(botsData.flatMap(bot => [bot.user_id, bot.customer_id].filter(Boolean)))];
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, full_name, email")
@@ -56,19 +56,20 @@ const BotsManagement = () => {
       // Merge bot data with profile data
       return botsData.map(bot => ({
         ...bot,
-        profiles: profiles?.find(p => p.id === bot.user_id)
+        profiles: profiles?.find(p => p.id === (bot.customer_id || bot.user_id)),
+        creator_profile: profiles?.find(p => p.id === bot.user_id)
       }));
     },
   });
 
-  // Filter bots by clientId if provided
+  // Filter bots by clientId if provided - check both user_id and customer_id
   const filteredBots = clientId 
-    ? bots?.filter(bot => bot.user_id === clientId)
+    ? bots?.filter(bot => bot.user_id === clientId || bot.customer_id === clientId)
     : bots;
 
-  // Get client name if filtering
+  // Get client name if filtering - check both user_id and customer_id
   const filteredClient = clientId 
-    ? bots?.find(bot => bot.user_id === clientId)?.profiles
+    ? bots?.find(bot => bot.user_id === clientId || bot.customer_id === clientId)?.profiles
     : null;
 
   // Setup realtime subscription for bot status updates
@@ -179,8 +180,10 @@ const BotsManagement = () => {
 
   // Delete bot mutation using external API
   const deleteBotMutation = useMutation({
-    mutationFn: async (botId: string) => {
-      await api.deleteBot(botId);
+    mutationFn: async (bot: any) => {
+      // Use external_bot_id for deletion
+      const botIdToDelete = bot.external_bot_id || bot.bot_name;
+      await api.deleteBot(botIdToDelete);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
@@ -614,7 +617,7 @@ const BotsManagement = () => {
                 ביטול
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => selectedBot && deleteBotMutation.mutate(selectedBot.id)}
+                onClick={() => selectedBot && deleteBotMutation.mutate(selectedBot)}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 מחק

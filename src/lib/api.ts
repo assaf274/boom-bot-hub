@@ -23,6 +23,7 @@ export interface Bot {
   bot_name: string;
   status: "connected" | "disconnected" | "pending";
   user_id: string;
+  customer_id?: string;
   phone_number?: string;
   qr_code?: string;
   created_at: string;
@@ -30,6 +31,7 @@ export interface Bot {
   connected_at?: string;
   last_active?: string;
   connection_id?: string;
+  external_bot_id?: string;
 }
 
 export interface BotStatus {
@@ -98,14 +100,13 @@ export const getBotQR = async (externalBotId: string): Promise<BotQR> => {
 /**
  * Create a new bot
  */
-export const createBot = async (botName: string, userId: string): Promise<Bot> => {
+export const createBot = async (botName: string, customerId: string): Promise<Bot> => {
   try {
     return await callBotProxy('/bot', {
       method: "POST",
       body: {
         bot_name: botName,
-        user_id: userId,
-        customer_id: userId, // Set customer_id to the selected user
+        customer_id: customerId, // The customer who owns the bot
       },
     });
   } catch (error) {
@@ -148,11 +149,11 @@ export const updateBotName = async (botId: string, botName: string): Promise<Bot
 };
 
 /**
- * Delete a bot
+ * Delete a bot using external_bot_id
  */
-export const deleteBot = async (botId: string): Promise<void> => {
+export const deleteBot = async (externalBotId: string): Promise<void> => {
   try {
-    await callBotProxy(`/bot/${botId}`, { method: "DELETE" });
+    await callBotProxy(`/bot/${externalBotId}`, { method: "DELETE" });
   } catch (error) {
     console.error("Error deleting bot:", error);
     throw error;
