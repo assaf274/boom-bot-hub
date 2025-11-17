@@ -217,6 +217,54 @@ const ClientBotsManagement = () => {
     },
   });
 
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ bot, message, groupId }: { bot: any; message: string; groupId: string }) => {
+      const externalBotId = bot?.external_bot_id || bot?.bot_name;
+      if (!externalBotId) {
+        throw new Error("לא נמצא מזהה בוט");
+      }
+      if (!groupId) {
+        throw new Error("לא הוגדר מזהה קבוצה. אנא הגדר בדף הבית.");
+      }
+      console.log(`Sending message to group ${groupId} using bot ${externalBotId}`);
+      return await api.sendMessage(externalBotId, message, groupId);
+    },
+    onSuccess: () => {
+      toast({
+        title: "✓ ההודעה נשלחה בהצלחה",
+        description: "ההודעה נשלחה לקבוצה",
+      });
+      setMessageText("");
+      setSelectedBotForMessage(null);
+      setIsSendMessageDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "שגיאה בשליחת הודעה",
+        description: error.message || "וודא שהבוט מחובר ומזהה הקבוצה נכון",
+        variant: "destructive",
+      });
+      console.error("Error sending message:", error);
+    },
+  });
+
+  const handleSendMessage = () => {
+    if (!messageText.trim() || !selectedBotForMessage || !profile?.target_group_id) {
+      toast({
+        title: "שגיאה",
+        description: "אנא הזן הודעה ווודא שמזהה הקבוצה מוגדר בדף הבית",
+        variant: "destructive",
+      });
+      return;
+    }
+    sendMessageMutation.mutate({
+      bot: selectedBotForMessage,
+      message: messageText,
+      groupId: profile.target_group_id,
+    });
+  };
+
   const handleAddBot = () => {
     if (!newBotName.trim()) {
       toast({
@@ -509,6 +557,51 @@ const ClientBotsManagement = () => {
                 </div>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Send Message Dialog */}
+        <Dialog open={isSendMessageDialogOpen} onOpenChange={setIsSendMessageDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>שלח הודעה לקבוצה</DialogTitle>
+              <DialogDescription>
+                {profile?.target_group_id 
+                  ? `ההודעה תישלח לקבוצה: ${profile.target_group_id}`
+                  : "לא הוגדר מזהה קבוצה. אנא הגדר בדף הבית."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="message">תוכן ההודעה</Label>
+                <Textarea
+                  id="message"
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  placeholder="הקלד את ההודעה כאן..."
+                  rows={5}
+                  disabled={!profile?.target_group_id}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsSendMessageDialogOpen(false);
+                  setMessageText("");
+                  setSelectedBotForMessage(null);
+                }}
+              >
+                ביטול
+              </Button>
+              <Button
+                onClick={handleSendMessage}
+                disabled={sendMessageMutation.isPending || !messageText.trim() || !profile?.target_group_id}
+              >
+                {sendMessageMutation.isPending ? "שולח..." : "שלח"}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
