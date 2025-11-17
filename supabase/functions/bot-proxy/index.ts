@@ -53,10 +53,10 @@ serve(async (req) => {
     if ((method === "PUT" || method === "DELETE") && path.startsWith("/bot/")) {
       const botId = path.split("/")[2];
       
-      // Check if user owns this bot or is admin
+      // Check if user owns this bot (as creator or customer) or is admin
       const { data: bot, error: botError } = await supabase
         .from("bots")
-        .select("user_id")
+        .select("user_id, customer_id")
         .eq("external_bot_id", botId)
         .single();
 
@@ -68,7 +68,10 @@ serve(async (req) => {
         });
       }
 
-      if (bot.user_id !== user.id && !isAdmin) {
+      // User can access if they are the creator, the customer, or an admin
+      const hasAccess = bot.user_id === user.id || bot.customer_id === user.id || isAdmin;
+      
+      if (!hasAccess) {
         console.error("[BOT-PROXY] Unauthorized access attempt by user:", user.id);
         return new Response(JSON.stringify({ error: "Forbidden: You don't have access to this bot" }), {
           status: 403,

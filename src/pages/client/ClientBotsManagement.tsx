@@ -35,7 +35,7 @@ const ClientBotsManagement = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [botToDelete, setBotToDelete] = useState<string | null>(null);
+  const [botToDelete, setBotToDelete] = useState<any | null>(null);
   const [newBotName, setNewBotName] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
@@ -60,7 +60,7 @@ const ClientBotsManagement = () => {
         const { data, error } = await supabase
           .from("bots")
           .select("*")
-          .eq("user_id", user.id)
+          .or(`user_id.eq.${user.id},customer_id.eq.${user.id}`)
           .order("created_at", { ascending: false });
 
         if (error) {
@@ -94,7 +94,7 @@ const ClientBotsManagement = () => {
           event: "*",
           schema: "public",
           table: "bots",
-          filter: `user_id=eq.${user.id}`,
+          filter: `or(user_id.eq.${user.id},customer_id.eq.${user.id})`,
         },
         (payload) => {
           console.log("Bot change received:", payload);
@@ -187,8 +187,10 @@ const ClientBotsManagement = () => {
   });
 
   const deleteBotMutation = useMutation({
-    mutationFn: async (botId: string) => {
-      await api.deleteBot(botId);
+    mutationFn: async (bot: any) => {
+      // Use external_bot_id for deletion
+      const botIdToDelete = bot.external_bot_id || bot.bot_name;
+      await api.deleteBot(botIdToDelete);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-bots"] });
@@ -404,7 +406,7 @@ const ClientBotsManagement = () => {
                       <RefreshCw className="h-4 w-4" />
                       בדוק סטטוס
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => setBotToDelete(String(bot.id))}>
+                    <Button variant="destructive" size="sm" onClick={() => setBotToDelete(bot)}>
                       <Trash2 className="h-4 w-4 ml-2" />
                       מחק
                     </Button>
