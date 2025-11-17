@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bot, Plus, Trash2, QrCode, AlertCircle, RefreshCw } from "lucide-react";
+import { Bot, Plus, Trash2, QrCode, AlertCircle, RefreshCw, Send } from "lucide-react";
 import * as api from "@/lib/api";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +43,26 @@ const ClientBotsManagement = () => {
   const [currentBotExternalId, setCurrentBotExternalId] = useState<string | null>(null);
   const [currentBotStatus, setCurrentBotStatus] = useState<string | null>(null);
   const [isRefreshingQr, setIsRefreshingQr] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [selectedBotForMessage, setSelectedBotForMessage] = useState<any | null>(null);
+  const [isSendMessageDialogOpen, setIsSendMessageDialogOpen] = useState(false);
+
+  // Fetch user profile to get max_bots and target_group_id
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("max_bots, target_group_id")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
   // Fetch user's bots from Supabase
   const {
@@ -143,19 +164,6 @@ const ClientBotsManagement = () => {
   if (error) {
     console.error("Query error:", error);
   }
-
-  // Fetch user profile to get max_bots
-  const { data: profile } = useQuery({
-    queryKey: ["user-profile", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase.from("profiles").select("max_bots").eq("id", user.id).single();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
 
   const addBotMutation = useMutation({
     mutationFn: async (botName: string) => {
