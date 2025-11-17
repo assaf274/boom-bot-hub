@@ -78,34 +78,66 @@ serve(async (req) => {
 
     // Handle GET /bot/:id/qr - Forward to external server
     if (method === "GET" && path.match(/^\/bot\/[^/]+\/qr$/)) {
-      const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      console.log(`Fetching QR code from external server: ${EXTERNAL_API_URL}${path}`);
+      
+      try {
+        const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
 
-      const responseText = await response.text();
-      const data = responseText ? JSON.parse(responseText) : null;
+        console.log(`External server response status: ${response.status}`);
+        
+        const responseText = await response.text();
+        console.log(`External server response: ${responseText}`);
+        
+        const data = responseText ? JSON.parse(responseText) : null;
 
-      return new Response(JSON.stringify(data), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        console.error("Error fetching QR from external server:", error);
+        return new Response(JSON.stringify({ 
+          error: "לא ניתן להתחבר לשרת החיצוני",
+          details: error instanceof Error ? error.message : "Unknown error"
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Handle GET /bot/:id/status - Forward to external server
     if (method === "GET" && path.match(/^\/bot\/[^/]+\/status$/)) {
-      const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      console.log(`Fetching status from external server: ${EXTERNAL_API_URL}${path}`);
+      
+      try {
+        const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
 
-      const responseText = await response.text();
-      const data = responseText ? JSON.parse(responseText) : null;
+        console.log(`External server status response: ${response.status}`);
+        
+        const responseText = await response.text();
+        const data = responseText ? JSON.parse(responseText) : null;
 
-      return new Response(JSON.stringify(data), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        console.error("Error fetching status from external server:", error);
+        return new Response(JSON.stringify({ 
+          error: "לא ניתן להתחבר לשרת החיצוני",
+          details: error instanceof Error ? error.message : "Unknown error"
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Handle POST /bot
