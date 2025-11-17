@@ -29,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { BotDistributionGroups } from "@/components/BotDistributionGroups";
 
 const ClientBotsManagement = () => {
   const { user } = useAuth();

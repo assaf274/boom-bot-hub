@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import * as api from "@/lib/api";
+import { BotDistributionGroups } from "@/components/BotDistributionGroups";
 
 type Bot = api.Bot;
 

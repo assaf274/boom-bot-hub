@@ -173,13 +173,60 @@ export const refreshBotQR = async (botId: string): Promise<BotQR> => {
 };
 
 /**
- * Get target groups for a bot
+ * Get distribution groups for a bot
  */
-export const getBotTargets = async (externalBotId: string): Promise<string[]> => {
+export const getBotDistributionGroups = async (botId: number): Promise<any[]> => {
   try {
-    return await callBotProxy(`/bot/${externalBotId}/targets`, { method: "GET" });
+    const { data, error } = await supabase
+      .from('bot_distribution_groups')
+      .select('*')
+      .eq('bot_id', botId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    console.error("Error fetching bot targets:", error);
+    console.error("Error fetching bot distribution groups:", error);
+    throw error;
+  }
+};
+
+/**
+ * Add a distribution group to a bot
+ */
+export const addBotDistributionGroup = async (
+  botId: number,
+  groupId: string,
+  groupName?: string
+): Promise<any> => {
+  try {
+    const { data, error } = await supabase
+      .from('bot_distribution_groups')
+      .insert({ bot_id: botId, group_id: groupId, group_name: groupName })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error adding bot distribution group:", error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a distribution group
+ */
+export const deleteBotDistributionGroup = async (groupId: string): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('bot_distribution_groups')
+      .delete()
+      .eq('id', groupId);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error("Error deleting bot distribution group:", error);
     throw error;
   }
 };
