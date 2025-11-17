@@ -8,11 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Lock, Bell, Settings } from "lucide-react";
+import { User, Lock, Bell, Settings, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { getSystemSetting, updateSystemSetting, reloadExternalServerSettings } from "@/lib/api";
 
 const profileSchema = z.object({
   full_name: z.string().min(2, "השם חייב להכיל לפחות 2 תווים"),
@@ -57,6 +58,10 @@ const SettingsPage = () => {
     email_notifications: false,
   });
 
+  // System settings
+  const [masterGroupId, setMasterGroupId] = useState("");
+  const [systemLoading, setSystemLoading] = useState(false);
+
   // Fetch user profile
   useEffect(() => {
     if (!user?.id) return;
@@ -90,6 +95,22 @@ const SettingsPage = () => {
 
     fetchProfile();
   }, [user?.id]);
+
+  // Fetch system settings
+  useEffect(() => {
+    const fetchSystemSettings = async () => {
+      try {
+        const setting = await getSystemSetting('MASTER_GROUP_ID');
+        if (setting) {
+          setMasterGroupId(setting.value || '');
+        }
+      } catch (error) {
+        console.error("Error fetching system settings:", error);
+      }
+    };
+
+    fetchSystemSettings();
+  }, []);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,7 +217,7 @@ const SettingsPage = () => {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="profile" className="gap-2">
               <User className="h-4 w-4" />
               פרופיל
@@ -208,6 +229,10 @@ const SettingsPage = () => {
             <TabsTrigger value="notifications" className="gap-2">
               <Bell className="h-4 w-4" />
               התראות
+            </TabsTrigger>
+            <TabsTrigger value="system" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              הגדרות מערכת
             </TabsTrigger>
             <TabsTrigger value="preferences" className="gap-2">
               <Settings className="h-4 w-4" />
@@ -410,6 +435,72 @@ const SettingsPage = () => {
 
                 <Button onClick={handleNotificationPrefsUpdate} disabled={loading}>
                   {loading ? "שומר..." : "שמור העדפות"}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* System Settings Tab */}
+          <TabsContent value="system">
+            <Card>
+              <CardHeader>
+                <CardTitle>הגדרות מערכת</CardTitle>
+                <CardDescription>
+                  נהל את הגדרות מערכת ההפצה
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="masterGroupId">קבוצת WhatsApp מרכזית</Label>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      מזהה הקבוצה שממנה כל ההודעות מופצות לבוטים
+                    </p>
+                    <Input
+                      id="masterGroupId"
+                      value={masterGroupId}
+                      onChange={(e) => setMasterGroupId(e.target.value)}
+                      placeholder="120363XXXXXXXXXX@g.us"
+                      dir="ltr"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      כדי לקבל את מזהה הקבוצה, שלח הודעה בקבוצה עם הטקסט !groupinfo
+                    </p>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={async () => {
+                    setSystemLoading(true);
+                    try {
+                      await updateSystemSetting('MASTER_GROUP_ID', masterGroupId);
+                      
+                      // Reload settings in external bot server
+                      try {
+                        await reloadExternalServerSettings();
+                      } catch (reloadError) {
+                        console.warn('Could not reload external server settings:', reloadError);
+                        // Don't fail the entire operation if server reload fails
+                      }
+                      
+                      toast({
+                        title: "הגדרות נשמרו",
+                        description: "קבוצת WhatsApp המרכזית עודכנה בהצלחה",
+                      });
+                    } catch (error: any) {
+                      console.error("Error updating system settings:", error);
+                      toast({
+                        title: "שגיאה",
+                        description: "לא ניתן לעדכן את ההגדרות",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setSystemLoading(false);
+                    }
+                  }} 
+                  disabled={systemLoading}
+                >
+                  {systemLoading ? "שומר..." : "שמור הגדרות"}
                 </Button>
               </CardContent>
             </Card>

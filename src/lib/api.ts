@@ -230,3 +230,59 @@ export const deleteBotDistributionGroup = async (groupId: string): Promise<void>
     throw error;
   }
 };
+
+/**
+ * Get a system setting by key
+ */
+export const getSystemSetting = async (key: string): Promise<any> => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .eq('key', key)
+      .maybeSingle();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error fetching system setting:", error);
+    throw error;
+  }
+};
+
+/**
+ * Update a system setting
+ */
+export const updateSystemSetting = async (key: string, value: string): Promise<any> => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .update({ value, updated_at: new Date().toISOString() })
+      .eq('key', key)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error updating system setting:", error);
+    throw error;
+  }
+};
+
+/**
+ * Reload system settings in external bot server
+ */
+export const reloadExternalServerSettings = async (): Promise<void> => {
+  try {
+    const response = await fetch('http://172.93.213.2:3001/system/reload-settings');
+    if (!response.ok) {
+      throw new Error('Failed to reload external server settings');
+    }
+    const data = await response.json();
+    console.log('External server settings reloaded:', data);
+  } catch (error) {
+    console.error("Error reloading external server settings:", error);
+    throw error;
+  }
+};
