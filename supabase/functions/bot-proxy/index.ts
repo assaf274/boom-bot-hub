@@ -77,9 +77,22 @@ serve(async (req) => {
       }
     }
 
-    // Add user_id to body for POST operations if not admin
+    // Add user_id to body for POST operations
     if (method === "POST" && path === "/bot") {
-      body.user_id = user.id;
+      // If admin is creating a bot for a specific user, use provided user_id
+      // Otherwise, use the authenticated user's id
+      if (!body.user_id || (!isAdmin && body.user_id !== user.id)) {
+        body.user_id = user.id;
+      }
+      
+      // Validate that user_id is provided
+      if (!body.user_id) {
+        console.error("[BOT-PROXY] Missing user_id in bot creation");
+        return new Response(JSON.stringify({ error: "Missing customer_id in request" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     console.log(`[BOT-PROXY] ${method} -> ${EXTERNAL_API_URL}${path}`, body);
