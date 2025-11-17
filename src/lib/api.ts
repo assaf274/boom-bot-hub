@@ -286,3 +286,16 @@ export const reloadExternalServerSettings = async (): Promise<void> => {
     throw error;
   }
 };
+
+/**
+ * Update customer master group link
+ */
+export const updateCustomerMasterGroup = async (customerId: string, masterGroupLink: string) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ master_group_link: masterGroupLink })
+    .eq('id', customerId);
+  
+  if (error) throw error;
+  return data;
+};

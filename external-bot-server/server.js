@@ -60,8 +60,8 @@ if (!fs.existsSync(sessionsDir)) {
 }
 
 // Create a new bot instance
-function createBotInstance(botId) {
-  console.log(`[BOT-MANAGER] Creating bot instance: ${botId}`);
+async function createBotInstance(botId, customerId = null) {
+  console.log(`[BOT-MANAGER] Creating bot instance: ${botId}, customerId: ${customerId}`);
   
   const client = new Client({
     authStrategy: new LocalAuth({
@@ -88,8 +88,30 @@ function createBotInstance(botId) {
     status: 'pending',
     phoneNumber: null,
     lastActive: new Date(),
-    connectedAt: null
+    connectedAt: null,
+    customerId: customerId,
+    customerMasterGroup: null
   };
+
+  // Load customer's master group link
+  if (customerId) {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('master_group_link')
+        .eq('id', customerId)
+        .single();
+      
+      if (!error && profile && profile.master_group_link) {
+        botData.customerMasterGroup = profile.master_group_link;
+        console.log(`[BOT-${botId}] Customer master group loaded: ${profile.master_group_link}`);
+      } else {
+        console.log(`[BOT-${botId}] No master group configured for customer ${customerId}`);
+      }
+    } catch (err) {
+      console.error(`[BOT-${botId}] Error loading customer master group:`, err);
+    }
+  }
 
   // QR Code event
   client.on('qr', async (qr) => {
@@ -133,14 +155,19 @@ function createBotInstance(botId) {
     botData.qrCode = null;
   });
 
-  // Message event - Listen for messages from MASTER_GROUP
+  // Message event - Listen for messages from customer's MASTER_GROUP
   client.on('message', async (message) => {
     botData.lastActive = new Date();
     
     try {
-      // Check if message is from MASTER_GROUP
-      if (masterGroupId && message.from === masterGroupId) {
-        console.log(`[BOT-${botId}] Received message from MASTER_GROUP`);
+      // Check if this bot has a customer master group configured
+      if (!botData.customerMasterGroup) {
+        return; // No master group configured, skip message processing
+      }
+      
+      // Check if message is from this customer's MASTER_GROUP
+      if (message.from === botData.customerMasterGroup) {
+        console.log(`[BOT-${botId}] Received message from customer's MASTER_GROUP`);
         
         // First, find the bot in the database to get its internal ID
         const { data: botRecord, error: botError } = await supabase
@@ -247,7 +274,7 @@ app.post('/bot', (req, res) => {
   }
 
   try {
-    createBotInstance(botId);
+    createBotInstance(botId, customer_id);
     
     res.status(201).json({
       id: botId,

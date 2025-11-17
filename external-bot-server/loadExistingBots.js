@@ -36,7 +36,7 @@ async function loadExistingBotsFromSupabase(createBotInstanceFn) {
     
     const { data: bots, error } = await supabase
       .from('bots')
-      .select('external_bot_id, bot_name, status')
+      .select('external_bot_id, bot_name, status, customer_id')
       .neq('external_bot_id', null);
 
     if (error) {
@@ -54,9 +54,9 @@ async function loadExistingBotsFromSupabase(createBotInstanceFn) {
 
     for (const bot of bots) {
       if (bot.external_bot_id) {
-        console.log(`[LOAD-BOTS] Initializing bot: ${bot.external_bot_id}`);
+        console.log(`[LOAD-BOTS] Initializing bot: ${bot.external_bot_id} (customer: ${bot.customer_id || 'none'})`);
         try {
-          createBotInstanceFn(bot.external_bot_id);
+          createBotInstanceFn(bot.external_bot_id, bot.customer_id);
         } catch (err) {
           console.error(`[LOAD-BOTS] Error initializing ${bot.external_bot_id}:`, err.message);
         }
