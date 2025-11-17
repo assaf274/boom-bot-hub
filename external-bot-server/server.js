@@ -98,9 +98,57 @@ function createBotInstance(botId) {
     botData.qrCode = null;
   });
 
-  // Message event (for keeping last_active updated)
-  client.on('message', () => {
+  // Message event - Listen for messages from MASTER_GROUP
+  client.on('message', async (message) => {
     botData.lastActive = new Date();
+    
+    try {
+      const MASTER_GROUP_ID = process.env.MASTER_GROUP_ID;
+      
+      // Check if message is from MASTER_GROUP
+      if (MASTER_GROUP_ID && message.from === MASTER_GROUP_ID) {
+        console.log(`[BOT-${botId}] Received message from MASTER_GROUP: ${message.body}`);
+        
+        // Fetch target groups from Supabase
+        const { createClient } = require('@supabase/supabase-js');
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        const { data: targets, error } = await supabase
+          .from('bot_target_groups')
+          .select('group_id')
+          .eq('external_bot_id', botId);
+        
+        if (error) {
+          console.error(`[BOT-${botId}] Error fetching target groups:`, error);
+          return;
+        }
+        
+        if (!targets || targets.length === 0) {
+          console.log(`[BOT-${botId}] No target groups configured`);
+          return;
+        }
+        
+        // Send message to all target groups
+        console.log(`[BOT-${botId}] Broadcasting to ${targets.length} target groups`);
+        for (const target of targets) {
+          try {
+            let formattedGroupId = target.group_id;
+            if (!target.group_id.includes('@g.us')) {
+              formattedGroupId = `${target.group_id}@g.us`;
+            }
+            
+            await client.sendMessage(formattedGroupId, message.body);
+            console.log(`[BOT-${botId}] Message sent to ${formattedGroupId}`);
+          } catch (err) {
+            console.error(`[BOT-${botId}] Error sending to ${target.group_id}:`, err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[BOT-${botId}] Error in message handler:`, err);
+    }
   });
 
   // Initialize the client
@@ -320,55 +368,6 @@ app.delete('/bot/:id', (req, res) => {
   } catch (error) {
     console.error(`[BOT-${botId}] Error deleting bot:`, error);
     res.status(500).json({ error: 'Failed to delete bot' });
-  }
-});
-
-// POST /bot/:id/send-message - Send message to WhatsApp group
-app.post('/bot/:id/send-message', async (req, res) => {
-  const botId = req.params.id;
-  const { message, groupId } = req.body;
-  
-  console.log(`[BOT-${botId}] Send message request to group: ${groupId}`);
-  
-  if (!message || !groupId) {
-    console.error(`[BOT-${botId}] Missing message or groupId`);
-    return res.status(400).json({ error: 'Missing message or groupId' });
-  }
-
-  const botData = bots.get(botId);
-  if (!botData) {
-    console.log(`[BOT-${botId}] Bot not found`);
-    return res.status(404).json({ error: 'Bot not found' });
-  }
-
-  if (botData.status !== 'connected') {
-    console.error(`[BOT-${botId}] Bot not connected, status: ${botData.status}`);
-    return res.status(400).json({ error: 'Bot is not connected' });
-  }
-
-  try {
-    console.log(`[BOT-${botId}] Sending message to group ${groupId}: ${message}`);
-    
-    // Format groupId if needed (should be in format: 972XXXXXXXXX-XXXXXXXXXX@g.us)
-    let formattedGroupId = groupId;
-    if (!groupId.includes('@g.us')) {
-      formattedGroupId = `${groupId}@g.us`;
-    }
-    
-    await botData.client.sendMessage(formattedGroupId, message);
-    
-    console.log(`[BOT-${botId}] Message sent successfully to ${formattedGroupId}`);
-    res.json({ 
-      success: true, 
-      message: 'Message sent successfully',
-      groupId: formattedGroupId 
-    });
-  } catch (error) {
-    console.error(`[BOT-${botId}] Error sending message:`, error);
-    res.status(500).json({ 
-      error: 'Failed to send message', 
-      details: error.message 
-    });
   }
 });
 

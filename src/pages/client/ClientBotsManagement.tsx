@@ -4,11 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bot, Plus, Trash2, QrCode, AlertCircle, RefreshCw, Send } from "lucide-react";
+import { Bot, Plus, Trash2, QrCode, AlertCircle, RefreshCw } from "lucide-react";
 import * as api from "@/lib/api";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -43,18 +42,15 @@ const ClientBotsManagement = () => {
   const [currentBotExternalId, setCurrentBotExternalId] = useState<string | null>(null);
   const [currentBotStatus, setCurrentBotStatus] = useState<string | null>(null);
   const [isRefreshingQr, setIsRefreshingQr] = useState(false);
-  const [messageText, setMessageText] = useState("");
-  const [selectedBotForMessage, setSelectedBotForMessage] = useState<any | null>(null);
-  const [isSendMessageDialogOpen, setIsSendMessageDialogOpen] = useState(false);
 
-  // Fetch user profile to get max_bots and target_group_id
+  // Fetch user profile to get max_bots
   const { data: profile } = useQuery({
     queryKey: ["user-profile", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("max_bots, target_group_id")
+        .select("max_bots")
         .eq("id", user.id)
         .single();
 
@@ -216,54 +212,6 @@ const ClientBotsManagement = () => {
       });
     },
   });
-
-  // Send message mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async ({ bot, message, groupId }: { bot: any; message: string; groupId: string }) => {
-      const externalBotId = bot?.external_bot_id || bot?.bot_name;
-      if (!externalBotId) {
-        throw new Error("לא נמצא מזהה בוט");
-      }
-      if (!groupId) {
-        throw new Error("לא הוגדר מזהה קבוצה. אנא הגדר בדף הבית.");
-      }
-      console.log(`Sending message to group ${groupId} using bot ${externalBotId}`);
-      return await api.sendMessage(externalBotId, message, groupId);
-    },
-    onSuccess: () => {
-      toast({
-        title: "✓ ההודעה נשלחה בהצלחה",
-        description: "ההודעה נשלחה לקבוצה",
-      });
-      setMessageText("");
-      setSelectedBotForMessage(null);
-      setIsSendMessageDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "שגיאה בשליחת הודעה",
-        description: error.message || "וודא שהבוט מחובר ומזהה הקבוצה נכון",
-        variant: "destructive",
-      });
-      console.error("Error sending message:", error);
-    },
-  });
-
-  const handleSendMessage = () => {
-    if (!messageText.trim() || !selectedBotForMessage || !profile?.target_group_id) {
-      toast({
-        title: "שגיאה",
-        description: "אנא הזן הודעה ווודא שמזהה הקבוצה מוגדר בדף הבית",
-        variant: "destructive",
-      });
-      return;
-    }
-    sendMessageMutation.mutate({
-      bot: selectedBotForMessage,
-      message: messageText,
-      groupId: profile.target_group_id,
-    });
-  };
 
   const handleAddBot = () => {
     if (!newBotName.trim()) {
@@ -557,51 +505,6 @@ const ClientBotsManagement = () => {
                 </div>
               )}
             </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Send Message Dialog */}
-        <Dialog open={isSendMessageDialogOpen} onOpenChange={setIsSendMessageDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>שלח הודעה לקבוצה</DialogTitle>
-              <DialogDescription>
-                {profile?.target_group_id 
-                  ? `ההודעה תישלח לקבוצה: ${profile.target_group_id}`
-                  : "לא הוגדר מזהה קבוצה. אנא הגדר בדף הבית."}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="message">תוכן ההודעה</Label>
-                <Textarea
-                  id="message"
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  placeholder="הקלד את ההודעה כאן..."
-                  rows={5}
-                  disabled={!profile?.target_group_id}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsSendMessageDialogOpen(false);
-                  setMessageText("");
-                  setSelectedBotForMessage(null);
-                }}
-              >
-                ביטול
-              </Button>
-              <Button
-                onClick={handleSendMessage}
-                disabled={sendMessageMutation.isPending || !messageText.trim() || !profile?.target_group_id}
-              >
-                {sendMessageMutation.isPending ? "שולח..." : "שלח"}
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

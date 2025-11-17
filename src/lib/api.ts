@@ -173,20 +173,13 @@ export const refreshBotQR = async (botId: string): Promise<BotQR> => {
 };
 
 /**
- * Send message to WhatsApp group via bot
+ * Get target groups for a bot
  */
-export const sendMessage = async (
-  externalBotId: string,
-  message: string,
-  groupId: string
-): Promise<{ success: boolean; message: string }> => {
+export const getBotTargets = async (externalBotId: string): Promise<string[]> => {
   try {
-    return await callBotProxy(`/bot/${externalBotId}/send-message`, {
-      method: "POST",
-      body: { message, groupId },
-    });
+    return await callBotProxy(`/bot/${externalBotId}/targets`, { method: "GET" });
   } catch (error) {
-    console.error("Error sending message:", error);
+    console.error("Error fetching bot targets:", error);
     throw error;
   }
 };
