@@ -404,7 +404,7 @@ const ClientBotsManagement = () => {
                       <RefreshCw className="h-4 w-4" />
                       בדוק סטטוס
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => setBotToDelete(bot.id)}>
+                    <Button variant="destructive" size="sm" onClick={() => setBotToDelete(String(bot.id))}>
                       <Trash2 className="h-4 w-4 ml-2" />
                       מחק
                     </Button>

@@ -175,7 +175,7 @@ const AdminDashboard = () => {
       if (bots && bots.length > 0 && groups && groups.length > 0) {
         const { error: messagesError } = await supabase.from("messages").insert([
           {
-            bot_id: bots[0].id,
+            bot_id: String(bots[0].id),
             group_id: groups[0].id,
             user_id: userData.user.id,
             content: "שלום! זו הודעת דמו ראשונה",
@@ -184,7 +184,7 @@ const AdminDashboard = () => {
             sent_at: new Date().toISOString(),
           },
           {
-            bot_id: bots[0].id,
+            bot_id: String(bots[0].id),
             group_id: groups[1].id,
             user_id: userData.user.id,
             content: "הודעת דמו שנייה",
@@ -193,7 +193,7 @@ const AdminDashboard = () => {
             sent_at: new Date().toISOString(),
           },
           {
-            bot_id: bots[1].id,
+            bot_id: String(bots[1].id),
             group_id: groups[0].id,
             user_id: userData.user.id,
             content: "הודעה ממתינה לשליחה",
@@ -202,7 +202,7 @@ const AdminDashboard = () => {
             scheduled_at: new Date(Date.now() + 86400000).toISOString(),
           },
           {
-            bot_id: bots[1].id,
+            bot_id: String(bots[1].id),
             group_id: groups[2].id,
             user_id: userData.user.id,
             content: "הודעה שנכשלה",

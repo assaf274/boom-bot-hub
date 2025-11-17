@@ -17,21 +17,45 @@ export type Database = {
       bots: {
         Row: {
           bot_name: string | null
+          connected_at: string | null
+          connection_id: string | null
+          created_at: string | null
           external_bot_id: string | null
           id: number
+          last_active: string | null
+          phone_number: string | null
+          qr_code: string | null
           status: string | null
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           bot_name?: string | null
+          connected_at?: string | null
+          connection_id?: string | null
+          created_at?: string | null
           external_bot_id?: string | null
           id?: number
+          last_active?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
           status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           bot_name?: string | null
+          connected_at?: string | null
+          connection_id?: string | null
+          created_at?: string | null
           external_bot_id?: string | null
           id?: number
+          last_active?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
           status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
