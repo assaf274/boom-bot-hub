@@ -14,29 +14,37 @@ export type Database = {
   }
   public: {
     Tables: {
-      bot_target_groups: {
+      bot_distribution_groups: {
         Row: {
+          bot_id: number
           created_at: string
-          external_bot_id: string
           group_id: string
+          group_name: string | null
           id: string
-          updated_at: string
         }
         Insert: {
+          bot_id: number
           created_at?: string
-          external_bot_id: string
           group_id: string
+          group_name?: string | null
           id?: string
-          updated_at?: string
         }
         Update: {
+          bot_id?: number
           created_at?: string
-          external_bot_id?: string
           group_id?: string
+          group_name?: string | null
           id?: string
-          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bot_distribution_groups_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bots: {
         Row: {

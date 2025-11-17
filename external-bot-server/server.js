@@ -107,7 +107,7 @@ function createBotInstance(botId) {
       
       // Check if message is from MASTER_GROUP
       if (MASTER_GROUP_ID && message.from === MASTER_GROUP_ID) {
-        console.log(`[BOT-${botId}] Received message from MASTER_GROUP: ${message.body}`);
+        console.log(`[BOT-${botId}] Received message from MASTER_GROUP`);
         
         // Fetch target groups from Supabase
         const { createClient } = require('@supabase/supabase-js');
@@ -115,34 +115,57 @@ function createBotInstance(botId) {
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         const supabase = createClient(supabaseUrl, supabaseKey);
         
-        const { data: targets, error } = await supabase
-          .from('bot_target_groups')
-          .select('group_id')
-          .eq('external_bot_id', botId);
+        // First, find the bot in the database to get its internal ID
+        const { data: botRecord, error: botError } = await supabase
+          .from('bots')
+          .select('id')
+          .eq('external_bot_id', botId)
+          .single();
+        
+        if (botError || !botRecord) {
+          console.error(`[BOT-${botId}] Error finding bot in database:`, botError);
+          return;
+        }
+        
+        // Now fetch distribution groups for this bot
+        const { data: groups, error } = await supabase
+          .from('bot_distribution_groups')
+          .select('group_id, group_name')
+          .eq('bot_id', botRecord.id);
         
         if (error) {
-          console.error(`[BOT-${botId}] Error fetching target groups:`, error);
+          console.error(`[BOT-${botId}] Error fetching distribution groups:`, error);
           return;
         }
         
-        if (!targets || targets.length === 0) {
-          console.log(`[BOT-${botId}] No target groups configured`);
+        if (!groups || groups.length === 0) {
+          console.log(`[BOT-${botId}] No distribution groups configured`);
           return;
         }
         
-        // Send message to all target groups
-        console.log(`[BOT-${botId}] Broadcasting to ${targets.length} target groups`);
-        for (const target of targets) {
+        // Send message to all distribution groups
+        console.log(`[BOT-${botId}] Broadcasting to ${groups.length} distribution groups`);
+        
+        for (const group of groups) {
           try {
-            let formattedGroupId = target.group_id;
-            if (!target.group_id.includes('@g.us')) {
-              formattedGroupId = `${target.group_id}@g.us`;
+            let formattedGroupId = group.group_id;
+            if (!group.group_id.includes('@g.us')) {
+              formattedGroupId = `${group.group_id}@g.us`;
             }
             
-            await client.sendMessage(formattedGroupId, message.body);
-            console.log(`[BOT-${botId}] Message sent to ${formattedGroupId}`);
+            // Support text, images, and files
+            if (message.hasMedia) {
+              const media = await message.downloadMedia();
+              await client.sendMessage(formattedGroupId, media, {
+                caption: message.body || undefined
+              });
+              console.log(`[BOT-${botId}] Media sent to ${group.group_name || formattedGroupId}`);
+            } else {
+              await client.sendMessage(formattedGroupId, message.body);
+              console.log(`[BOT-${botId}] Message sent to ${group.group_name || formattedGroupId}`);
+            }
           } catch (err) {
-            console.error(`[BOT-${botId}] Error sending to ${target.group_id}:`, err);
+            console.error(`[BOT-${botId}] Error sending to ${group.group_name || group.group_id}:`, err);
           }
         }
       }
