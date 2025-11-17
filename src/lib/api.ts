@@ -299,3 +299,16 @@ export const updateCustomerMasterGroup = async (customerId: string, masterGroupL
   if (error) throw error;
   return data;
 };
+
+/**
+ * Update customer message delay
+ */
+export const updateCustomerMessageDelay = async (customerId: string, delaySeconds: number) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ message_delay_seconds: delaySeconds })
+    .eq('id', customerId);
+  
+  if (error) throw error;
+  return data;
+};

@@ -43,15 +43,16 @@ const ClientBotsManagement = () => {
   const [currentBotExternalId, setCurrentBotExternalId] = useState<string | null>(null);
   const [currentBotStatus, setCurrentBotStatus] = useState<string | null>(null);
   const [isRefreshingQr, setIsRefreshingQr] = useState(false);
+  const [messageDelay, setMessageDelay] = useState<number>(0);
 
-  // Fetch user profile to get max_bots
+  // Fetch user profile to get max_bots and message_delay_seconds
   const { data: profile } = useQuery({
     queryKey: ["user-profile", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("max_bots")
+        .select("max_bots, message_delay_seconds")
         .eq("id", user.id)
         .single();
 
@@ -60,6 +61,13 @@ const ClientBotsManagement = () => {
     },
     enabled: !!user?.id,
   });
+
+  // Update local state when profile loads
+  useEffect(() => {
+    if (profile?.message_delay_seconds !== undefined) {
+      setMessageDelay(profile.message_delay_seconds);
+    }
+  }, [profile]);
 
   // Fetch user's bots from Supabase
   const {
@@ -274,6 +282,41 @@ const ClientBotsManagement = () => {
     );
   }
 
+  // Mutation for updating message delay
+  const updateDelayMutation = useMutation({
+    mutationFn: async (delaySeconds: number) => {
+      if (!user?.id) throw new Error("User not found");
+      return api.updateCustomerMessageDelay(user.id, delaySeconds);
+    },
+    onSuccess: () => {
+      toast({
+        title: "הצלחה",
+        description: "דילי בין הודעות עודכן בהצלחה",
+      });
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "שגיאה",
+        description: "לא ניתן לעדכן את הדילי",
+        variant: "destructive",
+      });
+      console.error("Error updating delay:", error);
+    },
+  });
+
+  const handleSaveDelay = () => {
+    if (messageDelay < 0) {
+      toast({
+        title: "שגיאה",
+        description: "הדילי חייב להיות 0 או גדול יותר",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateDelayMutation.mutate(messageDelay);
+  };
+
   return (
     <AppLayout>
       <div className="container mx-auto p-6 space-y-6">
@@ -289,6 +332,37 @@ const ClientBotsManagement = () => {
             הוסף בוט חדש
           </Button>
         </div>
+
+        {/* Message Delay Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>הגדרות הפצת הודעות</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="message-delay">דילי בין הודעות (בשניות)</Label>
+                <Input
+                  id="message-delay"
+                  type="number"
+                  min="0"
+                  value={messageDelay}
+                  onChange={(e) => setMessageDelay(parseInt(e.target.value) || 0)}
+                  placeholder="0"
+                />
+                <p className="text-xs text-muted-foreground">
+                  הדילי חל על כל הבוטים שלך. אם הערך 0 - הודעות נשלחות מיד.
+                </p>
+              </div>
+              <Button 
+                onClick={handleSaveDelay}
+                disabled={updateDelayMutation.isPending}
+              >
+                {updateDelayMutation.isPending ? "שומר..." : "שמור"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {!canAddBot && (
           <Card className="border-orange-500/50 bg-orange-50 dark:bg-orange-950/20">
