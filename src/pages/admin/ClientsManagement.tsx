@@ -44,6 +44,7 @@ interface Client {
   phone: string | null;
   notes: string | null;
   max_bots: number;
+  master_group_link: string | null;
   created_at: string;
   bots_count: number;
   groups_count: number;
@@ -55,6 +56,7 @@ interface ClientFormData {
   phone: string;
   notes: string;
   max_bots: number;
+  master_group_link: string;
   password: string;
 }
 
@@ -74,6 +76,7 @@ const ClientsManagement = () => {
     phone: "",
     notes: "",
     max_bots: 5,
+    master_group_link: "",
     password: "",
   });
 
@@ -244,6 +247,7 @@ const ClientsManagement = () => {
           phone: formData.phone,
           notes: formData.notes,
           max_bots: formData.max_bots,
+          master_group_link: formData.master_group_link,
         })
         .eq("id", selectedClient.id);
 
@@ -306,6 +310,7 @@ const ClientsManagement = () => {
       phone: client.phone || "",
       notes: client.notes || "",
       max_bots: client.max_bots,
+      master_group_link: client.master_group_link || "",
       password: "",
     });
     setIsEditDialogOpen(true);
@@ -323,6 +328,7 @@ const ClientsManagement = () => {
       phone: "",
       notes: "",
       max_bots: 5,
+      master_group_link: "",
       password: "",
     });
   };
@@ -574,6 +580,18 @@ const ClientsManagement = () => {
                   value={formData.max_bots}
                   onChange={(e) => setFormData({ ...formData, max_bots: parseInt(e.target.value) || 5 })}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-master-group">קבוצת הפצה ראשית (Master Group)</Label>
+                <Input
+                  id="edit-master-group"
+                  placeholder="קישור לקבוצת וואטסאפ"
+                  value={formData.master_group_link}
+                  onChange={(e) => setFormData({ ...formData, master_group_link: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  קישור לקבוצה שממנה יופצו הודעות אוטומטית לקבוצות היעד של הלקוח
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-notes">הערות</Label>

@@ -239,6 +239,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          master_group_link: string | null
           max_bots: number | null
           notes: string | null
           notification_preferences: Json | null
@@ -252,6 +253,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          master_group_link?: string | null
           max_bots?: number | null
           notes?: string | null
           notification_preferences?: Json | null
@@ -265,6 +267,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          master_group_link?: string | null
           max_bots?: number | null
           notes?: string | null
           notification_preferences?: Json | null
