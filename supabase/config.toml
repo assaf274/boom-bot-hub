@@ -1,1 +1,10 @@
 project_id = "gbqfmujszlxpnahqbrkq"
+
+[functions.bot-proxy]
+verify_jwt = true
+
+[functions.create-client]
+verify_jwt = true
+
+[functions.ai-chat]
+verify_jwt = false
