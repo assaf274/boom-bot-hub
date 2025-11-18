@@ -201,11 +201,18 @@ const ClientBotsManagement = () => {
 
   const deleteBotMutation = useMutation({
     mutationFn: async (bot: any) => {
-      // Must have external_bot_id to delete
-      if (!bot.external_bot_id) {
-        throw new Error("בוט זה לא ניתן למחיקה - חסר מזהה חיצוני. נא ליצור בוט חדש במקום.");
+      // If bot has external_bot_id, delete via external API
+      if (bot.external_bot_id) {
+        await api.deleteBot(bot.external_bot_id);
+      } else {
+        // Old bot without external_bot_id - delete directly from Supabase
+        const { error } = await supabase
+          .from('bots')
+          .delete()
+          .eq('id', bot.id);
+        
+        if (error) throw error;
       }
-      await api.deleteBot(bot.external_bot_id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-bots"] });
