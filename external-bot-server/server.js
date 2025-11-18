@@ -491,6 +491,38 @@ app.delete('/bot/:id', (req, res) => {
   }
 });
 
+// GET /bot/:id/groups - Get WhatsApp groups from bot
+app.get('/bot/:id/groups', async (req, res) => {
+  const botId = req.params.id;
+  const bot = bots.get(botId);
+
+  if (!bot) {
+    return res.status(404).json({ error: 'Bot not found' });
+  }
+
+  if (bot.status !== 'connected') {
+    return res.status(400).json({ error: 'Bot is not connected' });
+  }
+
+  try {
+    console.log(`[BOT-${botId}] Fetching WhatsApp groups...`);
+    const chats = await bot.client.getChats();
+    const groups = chats
+      .filter(chat => chat.isGroup)
+      .map(chat => ({
+        id: chat.id._serialized,
+        name: chat.name,
+        participantsCount: chat.participants ? chat.participants.length : 0
+      }));
+    
+    console.log(`[BOT-${botId}] Found ${groups.length} groups`);
+    res.json({ groups });
+  } catch (error) {
+    console.error(`[BOT-${botId}] Error fetching groups:`, error);
+    res.status(500).json({ error: 'Failed to fetch groups' });
+  }
+});
+
 // GET /system/reload-settings - Reload system settings from Supabase
 app.get('/system/reload-settings', async (req, res) => {
   try {
