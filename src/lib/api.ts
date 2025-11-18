@@ -2,19 +2,42 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Helper function to call the bot-proxy edge function
 const callBotProxy = async (path: string, options: { method: string; body?: any } = { method: "GET" }) => {
-  const { data, error } = await supabase.functions.invoke('bot-proxy', {
-    body: {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    throw new Error("Not authenticated");
+  }
+
+  console.log(`🚀 Calling bot-proxy: POST ${supabaseUrl}/functions/v1/bot-proxy`, {
+    path,
+    method: options.method,
+    body: options.body
+  });
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/bot-proxy`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
       path,
       method: options.method,
       body: options.body,
-    },
+    }),
   });
 
-  if (error) {
-    console.error("Bot proxy error:", error);
-    throw new Error(error.message);
+  console.log(`📊 bot-proxy response status: ${response.status}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error("❌ Bot proxy error:", error);
+    throw new Error(error.error || "Bot proxy request failed");
   }
 
+  const data = await response.json();
+  console.log(`✅ bot-proxy response data:`, data);
   return data;
 };
 
