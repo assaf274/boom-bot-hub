@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,13 +22,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Trash2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 
 interface BotDistributionGroupsProps {
   botId: number;
   botName: string;
+  botExternalId?: string;
+  botStatus?: string;
 }
 
 export const BotDistributionGroups = ({ botId, botName, botExternalId, botStatus }: BotDistributionGroupsProps) => {
