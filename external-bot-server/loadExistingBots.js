@@ -16,21 +16,21 @@ require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 async function loadExistingBotsFromSupabase(createBotInstanceFn) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.log('[LOAD-BOTS] Supabase credentials not found, skipping auto-load');
     console.log(`[LOAD-BOTS] SUPABASE_URL: ${SUPABASE_URL || 'NOT SET'}`);
-    console.log(`[LOAD-BOTS] SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_KEY ? `SET (length: ${SUPABASE_SERVICE_KEY.length})` : 'NOT SET'}`);
+    console.log(`[LOAD-BOTS] SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY ? `SET (length: ${SUPABASE_ANON_KEY.length})` : 'NOT SET'}`);
     return;
   }
 
   try {
     console.log(`[LOAD-BOTS] Connecting to Supabase: ${SUPABASE_URL}`);
-    console.log(`[LOAD-BOTS] Service key length: ${SUPABASE_SERVICE_KEY.length}`);
+    console.log(`[LOAD-BOTS] Anon key length: ${SUPABASE_ANON_KEY.length}`);
     
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     console.log('[LOAD-BOTS] Fetching existing bots from Supabase...');
     
