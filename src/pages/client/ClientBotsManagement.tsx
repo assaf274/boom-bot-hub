@@ -201,9 +201,11 @@ const ClientBotsManagement = () => {
 
   const deleteBotMutation = useMutation({
     mutationFn: async (bot: any) => {
-      // Use external_bot_id for deletion
-      const botIdToDelete = bot.external_bot_id || bot.bot_name;
-      await api.deleteBot(botIdToDelete);
+      // Must have external_bot_id to delete
+      if (!bot.external_bot_id) {
+        throw new Error("בוט זה לא ניתן למחיקה - חסר מזהה חיצוני. נא ליצור בוט חדש במקום.");
+      }
+      await api.deleteBot(bot.external_bot_id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-bots"] });
