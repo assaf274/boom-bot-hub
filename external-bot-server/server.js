@@ -125,7 +125,7 @@ async function createBotInstance(botId, customerId = null) {
   });
 
   // Ready event
-  client.on('ready', () => {
+  client.on('ready', async () => {
     console.log(`[BOT-${botId}] Connected successfully`);
     botData.status = 'connected';
     botData.connectedAt = new Date();
@@ -134,6 +134,28 @@ async function createBotInstance(botId, customerId = null) {
     
     // Get phone number
     client.info.wid.user && (botData.phoneNumber = client.info.wid.user);
+    
+    // Update status in Supabase
+    try {
+      const { error } = await supabase
+        .from('bots')
+        .update({
+          status: 'connected',
+          connected_at: new Date().toISOString(),
+          last_active: new Date().toISOString(),
+          phone_number: botData.phoneNumber,
+          qr_code: null
+        })
+        .eq('external_bot_id', botId);
+      
+      if (error) {
+        console.error(`[BOT-${botId}] Error updating status in Supabase:`, error);
+      } else {
+        console.log(`[BOT-${botId}] Status updated in Supabase successfully`);
+      }
+    } catch (err) {
+      console.error(`[BOT-${botId}] Exception updating status:`, err);
+    }
   });
 
   // Authenticated event
