@@ -9,7 +9,11 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log("🚀 START bot-proxy");
+  console.log("📍 Request method:", req.method);
+  
   if (req.method === "OPTIONS") {
+    console.log("✅ OPTIONS request - returning CORS headers");
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -18,8 +22,10 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    console.log("🔐 Checking authentication...");
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      console.error("❌ No authorization header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -30,13 +36,17 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
+      console.error("❌ Authentication failed:", authError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log("✅ User authenticated:", user.id);
+
     const { path, method, body } = await req.json();
+    console.log("📦 REQUEST BODY:", { path, method, body });
     const isAdmin = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' }).then(({ data }) => data === true);
 
     // Handle GET /bot/:id/targets
@@ -78,27 +88,33 @@ serve(async (req) => {
 
     // Handle GET /bot/:id/qr - Forward to external server
     if (method === "GET" && path.match(/^\/bot\/[^/]+\/qr$/)) {
-      console.log(`Fetching QR code from external server: ${EXTERNAL_API_URL}${path}`);
+      const botServerUrl = `${EXTERNAL_API_URL}${path}`;
+      console.log(`🔍 Fetching QR code from external server`);
+      console.log(`📡 BOT SERVER URL: ${botServerUrl}`);
       
       try {
-        const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
+        console.log("⏳ CALLING BOT SERVER...");
+        const response = await fetch(botServerUrl, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
 
-        console.log(`External server response status: ${response.status}`);
+        console.log(`📊 BOT RESPONSE STATUS: ${response.status}`);
         
         const responseText = await response.text();
-        console.log(`External server response: ${responseText}`);
+        console.log(`📄 BOT RESPONSE TEXT: ${responseText.substring(0, 200)}...`);
         
         const data = responseText ? JSON.parse(responseText) : null;
 
+        console.log("✅ QR request completed successfully");
         return new Response(JSON.stringify(data), {
           status: response.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (error) {
-        console.error("Error fetching QR from external server:", error);
+        console.error("❌ BOT-PROXY ERROR (QR):", error);
+        console.error("❌ Error details:", error instanceof Error ? error.message : "Unknown error");
+        console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack");
         return new Response(JSON.stringify({ 
           error: "לא ניתן להתחבר לשרת החיצוני",
           details: error instanceof Error ? error.message : "Unknown error"
@@ -111,25 +127,31 @@ serve(async (req) => {
 
     // Handle GET /bot/:id/status - Forward to external server
     if (method === "GET" && path.match(/^\/bot\/[^/]+\/status$/)) {
-      console.log(`Fetching status from external server: ${EXTERNAL_API_URL}${path}`);
+      const botServerUrl = `${EXTERNAL_API_URL}${path}`;
+      console.log(`🔍 Fetching status from external server`);
+      console.log(`📡 BOT SERVER URL: ${botServerUrl}`);
       
       try {
-        const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
+        console.log("⏳ CALLING BOT SERVER...");
+        const response = await fetch(botServerUrl, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
 
-        console.log(`External server status response: ${response.status}`);
+        console.log(`📊 BOT RESPONSE STATUS: ${response.status}`);
         
         const responseText = await response.text();
+        console.log(`📄 BOT RESPONSE TEXT: ${responseText.substring(0, 200)}...`);
         const data = responseText ? JSON.parse(responseText) : null;
 
+        console.log("✅ Status request completed successfully");
         return new Response(JSON.stringify(data), {
           status: response.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (error) {
-        console.error("Error fetching status from external server:", error);
+        console.error("❌ BOT-PROXY ERROR (Status):", error);
+        console.error("❌ Error details:", error instanceof Error ? error.message : "Unknown error");
         return new Response(JSON.stringify({ 
           error: "לא ניתן להתחבר לשרת החיצוני",
           details: error instanceof Error ? error.message : "Unknown error"
@@ -152,13 +174,19 @@ serve(async (req) => {
     }
 
     // Forward all other requests to external server
-    const response = await fetch(`${EXTERNAL_API_URL}${path}`, {
+    const botServerUrl = `${EXTERNAL_API_URL}${path}`;
+    console.log(`📡 Forwarding to external server: ${method} ${botServerUrl}`);
+    console.log(`📦 Request body:`, body);
+    
+    const response = await fetch(botServerUrl, {
       method,
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
 
+    console.log(`📊 External server response status: ${response.status}`);
     const responseText = await response.text();
+    console.log(`📄 External server response: ${responseText.substring(0, 200)}...`);
     const data = responseText ? JSON.parse(responseText) : null;
 
     // Handle Supabase side effects
@@ -177,12 +205,19 @@ serve(async (req) => {
       }
     }
 
+    console.log("✅ Request completed successfully");
     return new Response(JSON.stringify(data), {
       status: response.status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+    console.error("❌ BOT-PROXY GLOBAL ERROR:", error);
+    console.error("❌ Error message:", error instanceof Error ? error.message : "Unknown error");
+    console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack");
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : "Unknown error",
+      details: "Error in bot-proxy"
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
