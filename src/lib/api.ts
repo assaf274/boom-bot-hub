@@ -2,37 +2,32 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Helper function to call the bot-proxy edge function
 const callBotProxy = async (path: string, options: { method: string; body?: any } = { method: "GET" }) => {
-  console.log("🔵 callBotProxy START", { path, method: options.method, body: options.body });
+  const log = (window as any).appLog || console.log;
+  
+  log("🔵 callBotProxy START: " + JSON.stringify({ path, method: options.method }));
   
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  console.log("🔵 VITE_SUPABASE_URL:", supabaseUrl);
+  log("🔵 VITE_SUPABASE_URL: " + supabaseUrl);
   
   if (!supabaseUrl) {
-    console.error("❌ VITE_SUPABASE_URL is not defined!");
+    log("❌ VITE_SUPABASE_URL is not defined!");
     throw new Error("Supabase URL is not configured");
   }
   
-  console.log("🔵 Getting session...");
+  log("🔵 Getting session...");
   const { data: { session } } = await supabase.auth.getSession();
-  console.log("🔵 Session:", session ? "✅ Found" : "❌ Not found");
+  log("🔵 Session: " + (session ? "✅ Found" : "❌ Not found"));
   
   if (!session) {
-    console.error("❌ User not authenticated");
+    log("❌ User not authenticated");
     throw new Error("Not authenticated");
   }
 
   const fullUrl = `${supabaseUrl}/functions/v1/bot-proxy`;
-  console.log(`🚀 Calling bot-proxy: POST ${fullUrl}`, {
-    path,
-    method: options.method,
-    body: options.body,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${session.access_token.substring(0, 20)}...`
-    }
-  });
+  log(`🚀 Calling bot-proxy POST: ${fullUrl}`);
+  log(`🚀 Path: ${path}, Method: ${options.method}`);
 
-  console.log("🔵 About to send fetch request...");
+  log("🔵 About to send fetch request...");
   
   try {
     const response = await fetch(fullUrl, {
@@ -48,11 +43,11 @@ const callBotProxy = async (path: string, options: { method: string; body?: any 
       }),
     });
 
-    console.log(`📊 bot-proxy response status: ${response.status}`);
+    log(`📊 bot-proxy response status: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("❌ Bot proxy error response:", errorText);
+      log("❌ Bot proxy error response: " + errorText);
       let error;
       try {
         error = JSON.parse(errorText);
@@ -63,15 +58,13 @@ const callBotProxy = async (path: string, options: { method: string; body?: any 
     }
 
     const data = await response.json();
-    console.log(`✅ bot-proxy response data:`, data);
+    log(`✅ bot-proxy response data: ${JSON.stringify(data)}`);
     return data;
   } catch (fetchError) {
-    console.error("❌ Fetch error:", fetchError);
-    console.error("❌ Error details:", {
-      message: fetchError instanceof Error ? fetchError.message : "Unknown",
-      name: fetchError instanceof Error ? fetchError.name : "Unknown",
-      stack: fetchError instanceof Error ? fetchError.stack : "No stack"
-    });
+    log("❌ Fetch error: " + (fetchError instanceof Error ? fetchError.message : String(fetchError)));
+    if (fetchError instanceof Error) {
+      log("❌ Error stack: " + fetchError.stack);
+    }
     throw fetchError;
   }
 };
@@ -144,19 +137,19 @@ export const getBotStatus = async (botId: string): Promise<BotStatus> => {
  * Get bot QR code using external bot ID
  */
 export const getBotQR = async (externalBotId: string): Promise<BotQR> => {
-  console.log("🟢 getBotQR called with externalBotId:", externalBotId);
+  const log = (window as any).appLog || console.log;
+  log("🟢 getBotQR called with externalBotId: " + externalBotId);
   try {
     if (!externalBotId) {
-      console.error("❌ No external bot ID provided");
+      log("❌ No external bot ID provided");
       throw new Error("מזהה בוט חיצוני חסר");
     }
-    console.log("🟢 Calling callBotProxy for QR...");
+    log("🟢 Calling callBotProxy for QR...");
     const result = await callBotProxy(`/bot/${externalBotId}/qr`, { method: "GET" });
-    console.log("🟢 getBotQR result:", result);
+    log("🟢 getBotQR result: " + JSON.stringify(result));
     return result;
   } catch (error) {
-    console.error("❌ Error fetching bot QR:", error);
-    console.error("❌ Error type:", error instanceof Error ? error.constructor.name : typeof error);
+    log("❌ Error fetching bot QR: " + (error instanceof Error ? error.message : String(error)));
     throw error;
   }
 };
