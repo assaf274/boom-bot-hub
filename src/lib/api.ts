@@ -340,6 +340,18 @@ export const reloadExternalServerSettings = async (): Promise<void> => {
 };
 
 /**
+ * Get WhatsApp groups from a bot
+ */
+export const getBotWhatsAppGroups = async (externalBotId: string): Promise<{ groups: Array<{ id: string; name: string; participantsCount: number }> }> => {
+  try {
+    return await callBotProxy(`/bot/${externalBotId}/groups`, { method: "GET" });
+  } catch (error) {
+    console.error("Error fetching bot WhatsApp groups:", error);
+    throw error;
+  }
+};
+
+/**
  * Update customer master group link
  */
 export const updateCustomerMasterGroup = async (customerId: string, masterGroupLink: string) => {

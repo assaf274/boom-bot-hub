@@ -31,7 +31,7 @@ interface BotDistributionGroupsProps {
   botName: string;
 }
 
-export const BotDistributionGroups = ({ botId, botName }: BotDistributionGroupsProps) => {
+export const BotDistributionGroups = ({ botId, botName, botExternalId, botStatus }: BotDistributionGroupsProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -39,6 +39,8 @@ export const BotDistributionGroups = ({ botId, botName }: BotDistributionGroupsP
   const [groupToDelete, setGroupToDelete] = useState<any | null>(null);
   const [newGroupId, setNewGroupId] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
+  const [selectedGroupFromList, setSelectedGroupFromList] = useState<string>("");
+  const [useManualInput, setUseManualInput] = useState(false);
 
   // Fetch distribution groups
   const { data: groups = [], isLoading } = useQuery({
@@ -46,6 +48,28 @@ export const BotDistributionGroups = ({ botId, botName }: BotDistributionGroupsP
     queryFn: () => api.getBotDistributionGroups(botId),
     enabled: !!botId,
   });
+
+  // Fetch WhatsApp groups from the bot
+  const { 
+    data: whatsappGroups,
+    isLoading: isLoadingWhatsAppGroups,
+    refetch: refetchWhatsAppGroups
+  } = useQuery({
+    queryKey: ["bot-whatsapp-groups", botExternalId],
+    queryFn: () => api.getBotWhatsAppGroups(botExternalId!),
+    enabled: !!botExternalId && botStatus === 'connected' && isAddDialogOpen,
+    retry: false,
+  });
+
+  // Reset selection when dialog opens
+  useEffect(() => {
+    if (isAddDialogOpen) {
+      setNewGroupId("");
+      setNewGroupName("");
+      setSelectedGroupFromList("");
+      setUseManualInput(false);
+    }
+  }, [isAddDialogOpen]);
 
   // Add group mutation
   const addGroupMutation = useMutation({
@@ -91,14 +115,31 @@ export const BotDistributionGroups = ({ botId, botName }: BotDistributionGroupsP
   });
 
   const handleAddGroup = () => {
-    if (!newGroupId.trim()) {
+    let groupId = newGroupId;
+    let groupName = newGroupName;
+
+    // If using dropdown selection
+    if (!useManualInput && selectedGroupFromList) {
+      const selectedGroup = whatsappGroups?.groups.find((g: any) => g.id === selectedGroupFromList);
+      if (selectedGroup) {
+        groupId = selectedGroup.id;
+        groupName = selectedGroup.name;
+      }
+    }
+
+    if (!groupId.trim()) {
       toast({
         title: "שגיאה",
-        description: "יש להזין מזהה קבוצה",
+        description: "יש לבחור או להזין מזהה קבוצה",
         variant: "destructive",
       });
       return;
     }
+    
+    // Update state for mutation
+    setNewGroupId(groupId);
+    setNewGroupName(groupName);
+    
     addGroupMutation.mutate();
   };
 
