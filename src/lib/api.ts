@@ -2,43 +2,78 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Helper function to call the bot-proxy edge function
 const callBotProxy = async (path: string, options: { method: string; body?: any } = { method: "GET" }) => {
+  console.log("🔵 callBotProxy START", { path, method: options.method, body: options.body });
+  
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  console.log("🔵 VITE_SUPABASE_URL:", supabaseUrl);
+  
+  if (!supabaseUrl) {
+    console.error("❌ VITE_SUPABASE_URL is not defined!");
+    throw new Error("Supabase URL is not configured");
+  }
+  
+  console.log("🔵 Getting session...");
   const { data: { session } } = await supabase.auth.getSession();
+  console.log("🔵 Session:", session ? "✅ Found" : "❌ Not found");
   
   if (!session) {
+    console.error("❌ User not authenticated");
     throw new Error("Not authenticated");
   }
 
-  console.log(`🚀 Calling bot-proxy: POST ${supabaseUrl}/functions/v1/bot-proxy`, {
+  const fullUrl = `${supabaseUrl}/functions/v1/bot-proxy`;
+  console.log(`🚀 Calling bot-proxy: POST ${fullUrl}`, {
     path,
     method: options.method,
-    body: options.body
-  });
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/bot-proxy`, {
-    method: "POST",
+    body: options.body,
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({
-      path,
-      method: options.method,
-      body: options.body,
-    }),
+      "Authorization": `Bearer ${session.access_token.substring(0, 20)}...`
+    }
   });
 
-  console.log(`📊 bot-proxy response status: ${response.status}`);
+  console.log("🔵 About to send fetch request...");
+  
+  try {
+    const response = await fetch(fullUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        path,
+        method: options.method,
+        body: options.body,
+      }),
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    console.error("❌ Bot proxy error:", error);
-    throw new Error(error.error || "Bot proxy request failed");
+    console.log(`📊 bot-proxy response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Bot proxy error response:", errorText);
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch {
+        error = { error: errorText };
+      }
+      throw new Error(error.error || "Bot proxy request failed");
+    }
+
+    const data = await response.json();
+    console.log(`✅ bot-proxy response data:`, data);
+    return data;
+  } catch (fetchError) {
+    console.error("❌ Fetch error:", fetchError);
+    console.error("❌ Error details:", {
+      message: fetchError instanceof Error ? fetchError.message : "Unknown",
+      name: fetchError instanceof Error ? fetchError.name : "Unknown",
+      stack: fetchError instanceof Error ? fetchError.stack : "No stack"
+    });
+    throw fetchError;
   }
-
-  const data = await response.json();
-  console.log(`✅ bot-proxy response data:`, data);
-  return data;
 };
 
 export interface Bot {
@@ -109,13 +144,19 @@ export const getBotStatus = async (botId: string): Promise<BotStatus> => {
  * Get bot QR code using external bot ID
  */
 export const getBotQR = async (externalBotId: string): Promise<BotQR> => {
+  console.log("🟢 getBotQR called with externalBotId:", externalBotId);
   try {
     if (!externalBotId) {
+      console.error("❌ No external bot ID provided");
       throw new Error("מזהה בוט חיצוני חסר");
     }
-    return await callBotProxy(`/bot/${externalBotId}/qr`, { method: "GET" });
+    console.log("🟢 Calling callBotProxy for QR...");
+    const result = await callBotProxy(`/bot/${externalBotId}/qr`, { method: "GET" });
+    console.log("🟢 getBotQR result:", result);
+    return result;
   } catch (error) {
-    console.error("Error fetching bot QR:", error);
+    console.error("❌ Error fetching bot QR:", error);
+    console.error("❌ Error type:", error instanceof Error ? error.constructor.name : typeof error);
     throw error;
   }
 };
