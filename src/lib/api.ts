@@ -332,12 +332,7 @@ export const updateSystemSetting = async (key: string, value: string): Promise<a
  */
 export const reloadExternalServerSettings = async (): Promise<void> => {
   try {
-    const response = await fetch('http://172.93.213.2:3001/system/reload-settings');
-    if (!response.ok) {
-      throw new Error('Failed to reload external server settings');
-    }
-    const data = await response.json();
-    console.log('External server settings reloaded:', data);
+    await callBotProxy('/system/reload-settings', { method: "GET" });
   } catch (error) {
     console.error("Error reloading external server settings:", error);
     throw error;
