@@ -97,6 +97,25 @@ export interface BotQR {
   qr_code: string;
 }
 
+export interface WhatsAppGroup {
+  id: string;
+  name: string;
+}
+
+export interface SendToGroupsRequest {
+  groupIds: string[];
+  message: string;
+  mediaUrl?: string;
+}
+
+export interface SendToGroupsResponse {
+  success: boolean;
+  total: number;
+  sent: number;
+  failed: number;
+  errors?: Array<{ groupId: string; error: string }>;
+}
+
 /**
  * Get all bots for a specific user
  */
@@ -360,7 +379,44 @@ export const updateCustomerMessageDelay = async (customerId: string, delaySecond
     .from('profiles')
     .update({ message_delay_seconds: delaySeconds })
     .eq('id', customerId);
-  
+
   if (error) throw error;
   return data;
+};
+
+/**
+ * Get WhatsApp groups from a connected bot
+ */
+export const getBotGroups = async (externalBotId: string): Promise<WhatsAppGroup[]> => {
+  try {
+    if (!externalBotId) {
+      throw new Error("External bot ID is required");
+    }
+    const response = await callBotProxy(`/bot/${externalBotId}/groups`, { method: "GET" });
+    return response.groups || [];
+  } catch (error) {
+    console.error("Error fetching bot groups:", error);
+    throw error;
+  }
+};
+
+/**
+ * Send message to selected WhatsApp groups
+ */
+export const sendToGroups = async (
+  externalBotId: string,
+  request: SendToGroupsRequest
+): Promise<SendToGroupsResponse> => {
+  try {
+    if (!externalBotId) {
+      throw new Error("External bot ID is required");
+    }
+    return await callBotProxy(`/bot/${externalBotId}/send-to-groups`, {
+      method: "POST",
+      body: request,
+    });
+  } catch (error) {
+    console.error("Error sending to groups:", error);
+    throw error;
+  }
 };

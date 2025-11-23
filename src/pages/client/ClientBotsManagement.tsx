@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bot, Plus, Trash2, QrCode, AlertCircle, RefreshCw } from "lucide-react";
+import { Bot, Plus, Trash2, QrCode, AlertCircle, RefreshCw, MessageSquare } from "lucide-react";
 import * as api from "@/lib/api";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { BotDistributionGroups } from "@/components/BotDistributionGroups";
+import { GroupSelector } from "@/components/GroupSelector";
 
 const ClientBotsManagement = () => {
   const { user } = useAuth();
@@ -44,6 +45,8 @@ const ClientBotsManagement = () => {
   const [currentBotStatus, setCurrentBotStatus] = useState<string | null>(null);
   const [isRefreshingQr, setIsRefreshingQr] = useState(false);
   const [messageDelay, setMessageDelay] = useState<number>(0);
+  const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false);
+  const [selectedBotForGrouping, setSelectedBotForGrouping] = useState<any | null>(null);
 
   // Fetch user profile to get max_bots and message_delay_seconds
   const { data: profile } = useQuery({
@@ -487,6 +490,19 @@ const ClientBotsManagement = () => {
                       <RefreshCw className="h-4 w-4" />
                       בדוק סטטוס
                     </Button>
+                    {bot.status === "connected" && bot.external_bot_id && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => {
+                          setSelectedBotForGrouping(bot);
+                          setIsGroupSelectorOpen(true);
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        שלח לקבוצות
+                      </Button>
+                    )}
                     <Button variant="destructive" size="sm" onClick={() => setBotToDelete(bot)}>
                       <Trash2 className="h-4 w-4 ml-2" />
                       מחק
@@ -582,6 +598,23 @@ const ClientBotsManagement = () => {
                 </div>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Group Selector Dialog */}
+        <Dialog open={isGroupSelectorOpen} onOpenChange={(open) => {
+          setIsGroupSelectorOpen(open);
+          if (!open) {
+            setSelectedBotForGrouping(null);
+          }
+        }}>
+          <DialogContent className="sm:max-w-2xl">
+            {selectedBotForGrouping && selectedBotForGrouping.external_bot_id && (
+              <GroupSelector
+                externalBotId={selectedBotForGrouping.external_bot_id}
+                onClose={() => setIsGroupSelectorOpen(false)}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>

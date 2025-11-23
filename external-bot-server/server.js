@@ -469,14 +469,143 @@ app.delete('/bot/:id', (req, res) => {
   }
 });
 
+// GET /bot/:id/groups - Get all WhatsApp groups from a connected bot
+app.get('/bot/:id/groups', async (req, res) => {
+  const botId = req.params.id;
+  console.log(`[BOT-${botId}] Fetching WhatsApp groups`);
+
+  const botData = bots.get(botId);
+  if (!botData) {
+    return res.status(404).json({ error: 'Bot not found' });
+  }
+
+  if (botData.status !== 'connected') {
+    return res.status(400).json({
+      error: 'Bot is not connected',
+      status: botData.status
+    });
+  }
+
+  try {
+    const chats = await botData.client.getChats();
+
+    // Filter only group chats
+    const groups = chats
+      .filter(chat => chat.isGroup)
+      .map(chat => ({
+        id: chat.id._serialized,
+        name: chat.name
+      }));
+
+    console.log(`[BOT-${botId}] Found ${groups.length} groups`);
+    res.json({ groups });
+  } catch (error) {
+    console.error(`[BOT-${botId}] Error fetching groups:`, error);
+    res.status(500).json({ error: 'Failed to fetch groups' });
+  }
+});
+
+// POST /bot/:id/send-to-groups - Send message to selected WhatsApp groups
+app.post('/bot/:id/send-to-groups', async (req, res) => {
+  const botId = req.params.id;
+  const { groupIds, message, mediaUrl } = req.body;
+
+  console.log(`[BOT-${botId}] Send to groups request:`, {
+    groupCount: groupIds?.length,
+    hasMessage: !!message,
+    hasMedia: !!mediaUrl
+  });
+
+  // Validation
+  if (!groupIds || !Array.isArray(groupIds) || groupIds.length === 0) {
+    return res.status(400).json({ error: 'groupIds array is required' });
+  }
+
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  const botData = bots.get(botId);
+  if (!botData) {
+    return res.status(404).json({ error: 'Bot not found' });
+  }
+
+  if (botData.status !== 'connected') {
+    return res.status(400).json({
+      error: 'Bot is not connected',
+      status: botData.status
+    });
+  }
+
+  try {
+    // Get customer's message delay setting
+    let messageDelay = 0;
+    if (botData.customerId) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('message_delay_seconds')
+        .eq('id', botData.customerId)
+        .single();
+
+      if (!profileError && profile && profile.message_delay_seconds) {
+        messageDelay = profile.message_delay_seconds;
+        console.log(`[BOT-${botId}] Using message delay: ${messageDelay} seconds`);
+      }
+    }
+
+    const results = {
+      success: true,
+      total: groupIds.length,
+      sent: 0,
+      failed: 0,
+      errors: []
+    };
+
+    // Send to each group
+    for (let i = 0; i < groupIds.length; i++) {
+      const groupId = groupIds[i];
+      try {
+        // Ensure group ID has proper format
+        let formattedGroupId = groupId;
+        if (!groupId.includes('@g.us')) {
+          formattedGroupId = `${groupId}@g.us`;
+        }
+
+        await botData.client.sendMessage(formattedGroupId, message);
+        results.sent++;
+        console.log(`[BOT-${botId}] Message sent to group ${i + 1}/${groupIds.length}`);
+
+        // Apply delay between messages (except for the last one)
+        if (messageDelay > 0 && i < groupIds.length - 1) {
+          console.log(`[BOT-${botId}] Waiting ${messageDelay} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, messageDelay * 1000));
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          groupId,
+          error: error.message
+        });
+        console.error(`[BOT-${botId}] Failed to send to ${groupId}:`, error.message);
+      }
+    }
+
+    console.log(`[BOT-${botId}] Send complete: ${results.sent} sent, ${results.failed} failed`);
+    res.json(results);
+  } catch (error) {
+    console.error(`[BOT-${botId}] Error in send-to-groups:`, error);
+    res.status(500).json({ error: 'Failed to send messages' });
+  }
+});
+
 // GET /system/reload-settings - Reload system settings from Supabase
 app.get('/system/reload-settings', async (req, res) => {
   try {
     await loadMasterGroupId();
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'System settings reloaded',
-      masterGroupId: masterGroupId 
+      masterGroupId: masterGroupId
     });
   } catch (error) {
     console.error('Error reloading system settings:', error);
